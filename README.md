@@ -84,7 +84,7 @@ Usage
 
 In a command line in the directory the script is installed to:
 
-`.\diagen.py script.py [output file]` (Windows command and powershell)
+`.\diagen.py script.py [output file]` (Windows command and powershell)  
 `./diagen.py script.py [output file]` (Linux command line)
 
 Generates a dialogue XML file based on a python script and writes it to
