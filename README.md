@@ -10,6 +10,7 @@ Contents
 
 - [Contents](#contents)
 - [Motivation](#motivation)
+- [Installation](#installation)
 - [Usage](#usage)
 - [Script format](#script-format)
     * [Order of Directives](#order-of-directives)
@@ -44,6 +45,38 @@ places in a dialog.
 
 Appart from solving these issues, a Python based generator also allows
 for scripted generation of repeated structures.
+
+
+Installation
+------------
+
+You can download the [diagen.py](diagen.py) file (right click and save
+as on the raw button) and put it where you like.  The script is runned
+from a command line.  On Linux you will need to do `chmod +x diagen.py`
+in order to run it if obtained this way.
+
+Perhaps the best way to integrate Diagen into the development flow is to
+put it into the server folder and add it to the start of the
+StartServerConsole startup script.  For example on Windows:
+
+```cmd
+DEL WorldGen\Dialogues\MyScript.xml
+.\diagen.py WorldGen\Dialogues\MyScript.py
+
+java -jar ...
+```
+
+Or on Linux
+
+```sh
+rm WorldGen/Dialogues/MyScript.xml
+./diagen.py WorldGen/Dialogues/MyScript.py
+
+java -jar ...
+```
+
+This ensures every time you start the server that you will have the up
+to date dialogues.
 
 
 Usage
