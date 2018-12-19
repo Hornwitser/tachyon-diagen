@@ -15,7 +15,8 @@ Contents
 - [Script format](#script-format)
     * [Order of Directives](#order-of-directives)
     * [Auto Generated Ids](#auto-generated-ids)
-    * [Auto Generated Reply Text](#auto-generated-reply-text)
+- [Options Controlling Behaviour](#options-controlling-behaviour)
+    - [default\_resopnse](#default_response)
 - [Directives](#directives)
     * [Label(id)](#labelid)
     * [Response(text)](#responsetext)
@@ -287,14 +288,23 @@ Since I'm not aware of any use for the reply id, there's no way to
 influence the reply ids generated.
 
 
-### Auto Generated Reply Text
+Options Controlling Behaviour
+-----------------------------
+
+To control the behaviour of Diagen you can set `diagen_options` to a
+dictionary of option name to option value.  The available options are:
+
+
+### default\_response
 
 By default the reply text of a message is `[SKIP]...`, this can be
-changed by setting `default_response` in the script.  For example you
-can make the character overly affirmative with.
+changed by setting `'default_response'`.  For example you can make the
+character overly affirmative with:
 
-```
-default_response = "[SKIP]Aye sir!"
+```py
+diagen_options = {
+    'default_response': "[SKIP]Aye sir!",
+}
 ```
 
 
