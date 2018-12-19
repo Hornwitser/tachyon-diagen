@@ -315,8 +315,12 @@ def xml_conditions(node, conditions, options):
         for key, value in condition.params.items():
             if type(value) is list:
                 for item in value:
+                    if type(item) is int:
+                        item = str(item)
                     SubElement(condition_node, 'condition_param', {key: item})
             else:
+                if type(value) is int:
+                    value = str(value)
                 condition_node.set(key, value)
 
 def xml_messages(node, messages, options):

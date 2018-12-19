@@ -249,7 +249,7 @@ message preceeding it.
 Choice("Greetings", [
     [
         Response("Give me a challange"),
-        Condition("SECTOR_SHIPS_ABSENT", qty="1", owner="THE_BEARS"),
+        Condition("SECTOR_SHIPS_ABSENT", qty=1, owner="THE_BEARS"),
         "Here you go!",
         Event("SPAWN_CHALLANGE", "PLAYER"),
     ],
@@ -403,7 +403,8 @@ Goto and End added to the start of the subsection
 Specifies the condition of a reply.  Can only be used at the start of a
 subsection inside a Choice.  The params is of the form `name="value",
 ...` and correspond to the `<condition_param name="value" \>` element in
-the XML.
+the XML.  Values can also be integeres instead of strings, in this case
+they will be converted to strings in the XML output.
 
 It's also possible to specify params as a python dictionary mapping name
 to values.  This should be supplied either as a position argument after
