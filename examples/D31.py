@@ -5,10 +5,7 @@
 def skippable(message):
     return Choice(message, [
         [],
-        [
-            Response("I would like to skip the tutorial."),
-            Goto("Skip"),
-        ],
+        [Response("I would like to skip the tutorial."), Goto("Skip")],
     ])
 
 # Shorthand for hyperdrive test
@@ -37,20 +34,25 @@ dialogues = {
             [
                 Condition("SERVER_VARIABLE_ABSENT", var_name="TUTORIALS_STARTED", var_value=1),
 
-                skippable("Thank God! I thought I was the only survivor!"),
-                Event("SS31_STOP_CALLING_HELP", "PLAYER"),
-                Response("Who are you?"),
-                skippable("I'm [NPC_NAME], the captain of this station...  Well what's left of it..."),
-                Response("What happened here?"),
-                skippable("You're [PLAYER_NAME] right? Don't you remember anything?"),
-                Response("No. I don't!"),
-                skippable("Damn. The clone replication system must have been damaged."),
-                skippable("This is the D31 Science station. You are posted here as one of the guards."),
-                skippable("We were attacked by pirates, and they have stolen one of our prototype ships!"),
-                skippable("We need to report this to the Unity Science Centre. ASAP!"),
-                skippable("Problem is that the pirates have taken out our communications system."),
-                skippable("We need to think of a way to get the message to the USC."),
-                Response("How can I help?"),
+                *[
+                    skippable(item) if type(item) is str else item
+                    for item in [
+                        "Thank God! I thought I was the only survivor!",
+                        Event("SS31_STOP_CALLING_HELP", "PLAYER"),
+                        Response("Who are you?"),
+                        "I'm [NPC_NAME], the captain of this station...  Well what's left of it...",
+                        Response("What happened here?"),
+                        "You're [PLAYER_NAME] right? Don't you remember anything?",
+                        Response("No. I don't!"),
+                        "Damn. The clone replication system must have been damaged.",
+                        "This is the D31 Science station. You are posted here as one of the guards.",
+                        "We were attacked by pirates, and they have stolen one of our prototype ships!",
+                        "We need to report this to the Unity Science Centre. ASAP!",
+                        "Problem is that the pirates have taken out our communications system.",
+                        "We need to think of a way to get the message to the USC.",
+                        Response("How can I help?"),
+                    ]
+                ],
 
                 Choice("Please repair all systems you can.", [
                     [
@@ -59,9 +61,7 @@ dialogues = {
                         "Same thing with the hull breach, just stand on top of it, and it will auto repair.",
                         "To put out fire just stand on top of it and it will auto extinguish.",
                     ],
-                    [
-                        Response("I'm on it"),
-                    ],
+                    [Response("I'm on it")],
                 ]),
                 "Thanks. Speak to me when you're done.",
                 Event("START_TUTORIALS", "PLAYER"),
@@ -70,10 +70,7 @@ dialogues = {
 
                 Label("Skip"),
                 Choice("Are you sure?", [
-                    [
-                        Response("I changed my mind.  Teach me oh great master!"),
-                        Goto("M0"),
-                    ],
+                    [Response("I changed my mind.  Teach me oh great master!"), Goto("M0")],
                     [
                         Response("Yes.  let's go!"),
 
@@ -94,12 +91,12 @@ dialogues = {
                 Choice("Oh it's you [PLAYER_NAME].  Have you already finished all the repairs?", [
                     [
                         Response("I've fixed all the systems and breaches I could reach."),
-                    ] + [
-                        Condition("SHIP_SYSTEM_PRESENT", system_type=system, active_system=1, qty=qty)
-                        for system, qty in [
-                            ("OXYGEN", 2), ("CAPACITOR", 4), ("REPAIR", 1), ("LASER_WEAPONS", 1), ("SHIELDS", 1),
-                        ]
-                    ] + [
+                        *[
+                            Condition("SHIP_SYSTEM_PRESENT", system_type=system, active_system=1, qty=qty)
+                            for system, qty in [
+                                ("OXYGEN", 2), ("CAPACITOR", 4), ("REPAIR", 1), ("LASER_WEAPONS", 1), ("SHIELDS", 1),
+                            ]
+                        ],
 
                         "Excellent! And I have a plan how we can get that message to USC!",
                         Response("How?"),
@@ -110,10 +107,7 @@ dialogues = {
                         "You can use the Comms on the ship if you want.",
                         Choice("Meanwhile I want to check something in the Sensors room.", [
                             [Response("OK.")],
-                            [
-                                Response("How do I claim a ship for my self?"),
-                                Goto("CL_HOWTO"),
-                            ],
+                            [Response("How do I claim a ship for my self?"), Goto("CL_HOWTO")],
                         ]),
                         Event("STOP_REPAIR_TUTORIAL", "PLAYER"),
                         Event("START_CLAIM_TUTORIAL", "PLAYER"),
@@ -122,12 +116,12 @@ dialogues = {
                     [
                         Response("No, not yet."),
                         AnyCondition("1"),
-                    ] + [
-                        Condition("SHIP_SYSTEM_ABSENT", system_type=system, active_system=1, qty=qty)
-                        for system, qty in [
-                            ("OXYGEN", 2), ("CAPACITOR", 2), ("REPAIR", 1), ("LASER_WEAPONS", 1),
-                        ]
-                    ] + [
+                        *[
+                            Condition("SHIP_SYSTEM_ABSENT", system_type=system, active_system=1, qty=qty)
+                            for system, qty in [
+                                ("OXYGEN", 2), ("CAPACITOR", 2), ("REPAIR", 1), ("LASER_WEAPONS", 1),
+                            ]
+                        ],
 
                         "Please speak to me again when you're done fixing.",
                         Response("Ok."),
@@ -164,18 +158,9 @@ dialogues = {
 
                         Choice("Look for me in the LASER WEAPON room when you are done.", [
                             [Response("Great. I'll get right on it.")],
-                            [
-                                Response("Can you remind me how to pilot a ship within the sector?"),
-                                Goto("LJ_HOWTO"),
-                            ],
-                            [
-                                Response("How do I pick up debris and cargo in space?"),
-                                Goto("PICK_HOWTO"),
-                            ],
-                            [
-                                Response("How do I find items in space?"),
-                                Goto("FIND_HOWTO"),
-                            ],
+                            [Response("Can you remind me how to pilot a ship within the sector?"), Goto("LJ_HOWTO")],
+                            [Response("How do I pick up debris and cargo in space?"), Goto("PICK_HOWTO")],
+                            [Response("How do I find items in space?"), Goto("FIND_HOWTO")],
                         ]),
                         Event("STOP_CLAIM_TUTORIAL", "PLAYER"),
                         Event("START_LJ_TUTORIAL", "PLAYER"),
@@ -224,14 +209,8 @@ dialogues = {
                         "I will uninstall the station's laser and send it to your ship, so you can use it.",
                         Choice("Install the laser, blow up asteroids and repair the ship.", [
                             [Response("Will do.")],
-                            [
-                                Response("Wait, how do I install or uninstall systems on the ship?"),
-                                Goto("INST_HOWTO"),
-                            ],
-                            [
-                                Response("Wait, I don't know how to use weapons!"),
-                                Goto("SHOOT_HOWTO"),
-                            ],
+                            [Response("Wait, how do I install or uninstall systems on the ship?"), Goto("INST_HOWTO")],
+                            [Response("Wait, I don't know how to use weapons!"), Goto("SHOOT_HOWTO")],
                         ]),
                         Event("STOP_LJ_TUTORIAL", "PLAYER"),
                         Event("START_INST_TUTORIAL", "PLAYER"),
@@ -448,10 +427,7 @@ dialogues = {
                 Response("Thanks"),
                 Choice("There you will need to find Dr. Darius Graydon, and tell him what happened here.", [
                     [Response("I will get right on it.")],
-                    [
-                        Response("Can you tell me how to do Hyper jumps?"),
-                        Goto("HJ_HOWTO"),
-                    ],
+                    [Response("Can you tell me how to do Hyper jumps?"), Goto("HJ_HOWTO")],
                 ]),
                 Event("ADD_HD_TO_PLAYER", "PLAYER"),
                 Event("REMOVE_D31_SAFEZONE", "NPC"),
