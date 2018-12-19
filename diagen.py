@@ -286,9 +286,30 @@ def flatten(section):
 
     return output
 
-def xml_conditions(node, conditions):
+SERVER_VAR_TYPES = [
+    "SERVER_VARIABLE_PRESENT",
+    "SERVER_VARIABLE_ABSENT",
+]
+
+def xml_conditions(node, conditions, options):
     """Add xml condition and condition_param nodes from condition list"""
     for condition in conditions:
+        if condition.type in SERVER_VAR_TYPES:
+            if (
+                options['mangle_any_value']
+                and 'any_value' in condition.params
+                and 'var_value' not in condition.params
+            ):
+                condition.params['var_value'] = '1'
+
+            if (
+                options['mangle_empty_value']
+                and 'any_value' not in condition.params
+                and 'var_value' not in condition.params
+            ):
+                index = 1 - SERVER_VAR_TYPES.index(condition.type)
+                condition = condition._replace(type=SERVER_VAR_TYPES[index])
+
         condition_node = SubElement(node, 'condition', type=condition.type)
 
         for key, value in condition.params.items():
@@ -316,7 +337,7 @@ def xml_messages(node, messages, options):
             if reply.any_condition is not None:
                 reply_node.set('any_condition', reply.any_condition)
 
-            xml_conditions(reply_node, reply.conditions)
+            xml_conditions(reply_node, reply.conditions, options)
 
 def xml_dialogues(dialogues, options):
     """Create dialogues node from diagen dialogue mapping"""
@@ -415,6 +436,8 @@ def main():
 
     options = {
         'default_response': "[SKIP]...",
+        'mangle_any_value': True,
+        'mangle_empty_value': True,
     }
 
 

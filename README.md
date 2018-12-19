@@ -17,6 +17,8 @@ Contents
     * [Auto Generated Ids](#auto-generated-ids)
 - [Options Controlling Behaviour](#options-controlling-behaviour)
     - [default\_resopnse](#default_response)
+    - [mangle\_any\_value](#mangle_any_value)
+    - [mangle\_empty\_value](#mangle_empty_value)
 - [Directives](#directives)
     * [Label(id)](#labelid)
     * [Response(text)](#responsetext)
@@ -306,6 +308,38 @@ diagen_options = {
     'default_response': "[SKIP]Aye sir!",
 }
 ```
+
+
+### mangle\_any\_value
+
+By default Diagen will add a `var_value="1"` to conditions with the
+type `SERVER_VARIABLE_(ABSENT|PRESENT)` and `any_value="1"` set.  This
+is due to a bug in a0.8.19 where `any_value="1"` doesn't work unless
+`var_value` has been set.  You can disable this behavior by setting
+the `'mangle_any_value'` option to `False`.
+
+
+### mangle\_empty\_value
+
+By default Diagen will swap the condition type of
+`SERVER_VARIABLE_(ABSENT|PRESENT)` conditions to their logical opposite
+if neither `any_value`, nor `var_value` is set.  This is due to the
+highly unintuitive behavour of using these conditions, where they act in
+the reverse of what the name logically implies.  I.e. the following
+
+```xml
+<condition type="SERVER_VARIABLE_PRESENT" var_name="MY_VAR" />
+```
+
+will match if `MY_VAR` _is not set_.  Diagen reverse this so that
+
+```py
+Condition("SERVER_VARIABLE_PRESENT", var_name="MY_VAR")
+```
+
+will produce the `_ABSENT` variant that matches if `MY_VAR` is set.  You
+can disable this behaviour by setting the `'mangle_empty_value'` option
+to `False`.
 
 
 Directives
