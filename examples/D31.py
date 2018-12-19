@@ -14,7 +14,7 @@ def skippable(message):
 # Shorthand for hyperdrive test
 def hyperdrive_condition(state, model, player):
     return Condition(
-        f"SHIP_CARGO_{state}", {"cargo_type": "SHIP_SYSTEM", "system_model": model, "target_player": player, "qty": "1"}
+        f"SHIP_CARGO_{state}", cargo_type="SHIP_SYSTEM", system_model=model, target_player=player, qty="1"
     )
 
 dialogues = {
@@ -35,7 +35,7 @@ dialogues = {
             #    Response("Thanks"),
             #],
             [
-                Condition("SERVER_VARIABLE_ABSENT", {"var_name": "TUTORIALS_STARTED", "var_value": "1"}),
+                Condition("SERVER_VARIABLE_ABSENT", var_name="TUTORIALS_STARTED", var_value="1"),
 
                 skippable("Thank God! I thought I was the only survivor!"),
                 Event("SS31_STOP_CALLING_HELP", "PLAYER"),
@@ -89,13 +89,13 @@ dialogues = {
                 ]),
             ],
             [
-                Condition("SERVER_VARIABLE_PRESENT", {"var_name": "REPAIR_TUTORIAL_STARTED", "var_value": "1"}),
+                Condition("SERVER_VARIABLE_PRESENT", var_name="REPAIR_TUTORIAL_STARTED", var_value="1"),
 
                 Choice("Oh it's you [PLAYER_NAME].  Have you already finished all the repairs?", [
                     [
                         Response("I've fixed all the systems and breaches I could reach."),
                     ] + [
-                        Condition("SHIP_SYSTEM_PRESENT", {"system_type": system, "active_system": "1", "qty": qty})
+                        Condition("SHIP_SYSTEM_PRESENT", system_type=system, active_system="1", qty=qty)
                         for system, qty in [
                             ("OXYGEN", "2"), ("CAPACITOR", "4"), ("REPAIR", "1"), ("LASER_WEAPONS", "1"), ("SHIELDS", "1"),
                         ]
@@ -123,7 +123,7 @@ dialogues = {
                         Response("No, not yet."),
                         AnyCondition("1"),
                     ] + [
-                        Condition("SHIP_SYSTEM_ABSENT", {"system_type": system, "active_system": "1", "qty": qty})
+                        Condition("SHIP_SYSTEM_ABSENT", system_type=system, active_system="1", qty=qty)
                         for system, qty in [
                             ("OXYGEN", "2"), ("CAPACITOR", "2"), ("REPAIR", "1"), ("LASER_WEAPONS", "1"),
                         ]
@@ -142,12 +142,12 @@ dialogues = {
                 ]),
             ],
             [
-                Condition("SERVER_VARIABLE_PRESENT", {"var_name": "CLAIM_TUTORIAL_STARTED", "var_value": "1"}),
+                Condition("SERVER_VARIABLE_PRESENT", var_name="CLAIM_TUTORIAL_STARTED", var_value="1"),
 
                 Choice("Hello [PLAYER_NAME].  Are you now a captain or crew on a ship?", [
                     [
                         Response("Yes, I am now port of a ship crew."),
-                        Condition("SHIP_SYSTEM_PRESENT", {"target_player": "1", "system_type": "PILOTING", "qty": "1"}),
+                        Condition("SHIP_SYSTEM_PRESENT", target_player="1", system_type="PILOTING", qty="1"),
 
                         "Good.  Let's see now... ",
                         "The Second prototype ship is near death. You'll never be able to reach USC like this.",
@@ -185,7 +185,7 @@ dialogues = {
                     ],
                     [
                         Response("No, not yet"),
-                        Condition("SHIP_SYSTEM_ABSENT", {"target_player": "1", "system_type": "PILOTING", "qty": "1"}),
+                        Condition("SHIP_SYSTEM_ABSENT", target_player="1", system_type="PILOTING", qty="1"),
 
                         "Well, what are you waiting for?  Go do it!",
                         Response("OK. I'm on it"),
@@ -206,7 +206,7 @@ dialogues = {
                 ]),
             ],
             [
-                Condition("SERVER_VARIABLE_PRESENT", {"var_name": "LJ_TUTORIAL_STARTED", "var_value": "1"}),
+                Condition("SERVER_VARIABLE_PRESENT", var_name="LJ_TUTORIAL_STARTED", var_value="1"),
 
                 Choice("Hi [PLAYER_NAME].  Did you recover the Hyper Drive parts?", [
                     [
@@ -314,18 +314,18 @@ dialogues = {
                 ]),
             ],
             [
-                Condition("SERVER_VARIABLE_PRESENT", {"var_name": "INST_TUTORIAL_STARTED", "var_value": "1"}),
+                Condition("SERVER_VARIABLE_PRESENT", var_name="INST_TUTORIAL_STARTED", var_value="1"),
                 Choice("[PLAYER_NAME], Have you repaired the ship's hull?", [
                     [
                         Response("No, not yet."),
-                        Condition("SHIP_HULL_ABSENT", {"target_player": "1", "qty": "50"}),
+                        Condition("SHIP_HULL_ABSENT", target_player="1", qty="50"),
 
                         "Please hurry up and repair the ship.",
                         Response("I'm on it."),
                     ],
                     [
                         Response("Yes, the ship is fully repaired."),
-                        Condition("SHIP_HULL_PRESENT", {"target_player": "1", "qty": "50"}),
+                        Condition("SHIP_HULL_PRESENT", target_player="1", qty="50"),
 
                         "Perfect timing [PLAYER_NAME]!",
                         "Sensors have detected an incomming ship signature.",
@@ -365,8 +365,8 @@ dialogues = {
                 ]),
             ],
             [
-                Condition("SERVER_VARIABLE_PRESENT", {"var_name": "FIGHT_TUTORIAL_STARTED", "var_value": "1"}),
-                Condition("SECTOR_SHIPS_PRESENT", {"qty": "3"}),
+                Condition("SERVER_VARIABLE_PRESENT", var_name="FIGHT_TUTORIAL_STARTED", var_value="1"),
+                Condition("SECTOR_SHIPS_PRESENT", qty="3"),
 
                 Choice("What are you still doing here?!  Go blow up that pirate!", [
                     [Response("I'm working on it.")],
@@ -400,8 +400,8 @@ dialogues = {
                 ]),
             ],
             [
-                Condition("SERVER_VARIABLE_PRESENT", {"var_name": "FIGHT_TUTORIAL_STARTED", "var_value": "1"}),
-                Condition("SECTOR_SHIPS_ABSENT", {"qty": "3"}),
+                Condition("SERVER_VARIABLE_PRESENT", var_name="FIGHT_TUTORIAL_STARTED", var_value="1"),
+                Condition("SECTOR_SHIPS_ABSENT", qty="3"),
 
                 "Great work destroying those pirates [PLAYER_NAME]!",
                 Response("Yeah, that wasn't so hard."),
@@ -409,21 +409,21 @@ dialogues = {
                 Choice("I've finished assembling the new HYPER DRIVE for you.", [
                     [
                         AnyCondition("1"),
-                        Condition("SERVER_VARIABLE_PRESENT", {"var_name": "PLAYER_CREW_SPAWNED", "var_value": "1"}),
-                        Condition("SECTOR_PLAYERS_PRESENT", {"qty": "3"}),
+                        Condition("SERVER_VARIABLE_PRESENT", var_name="PLAYER_CREW_SPAWNED", var_value="1"),
+                        Condition("SECTOR_PLAYERS_PRESENT", qty="3"),
                     ],
                     [
-                        Condition("SERVER_VARIABLE_ABSENT", {"var_name": "PLAYER_CREW_SPAWNED", "var_value": "1"}),
-                        Condition("SECTOR_PLAYERS_ABESNT", {"qty": "3"}),
-                        Condition("SECTOR_PLAYERS_PRESENT", {"qty": "2"}),
+                        Condition("SERVER_VARIABLE_ABSENT", var_name="PLAYER_CREW_SPAWNED", var_value="1"),
+                        Condition("SECTOR_PLAYERS_ABESNT", qty="3"),
+                        Condition("SECTOR_PLAYERS_PRESENT", qty="2"),
 
                         "I've also managed to assemble some repair droids for you.",
                         Event("SPAWN_NPC_CREW_2", "PLAYER"),
                         Response("That's even better!"),
                     ],
                     [
-                        Condition("SERVER_VARIABLE_ABSENT", {"var_name": "PLAYER_CREW_SPAWNED", "var_value": "1"}),
-                        Condition("SECTOR_PLAYERS_ABESNT", {"qty": "2"}),
+                        Condition("SERVER_VARIABLE_ABSENT", var_name="PLAYER_CREW_SPAWNED", var_value="1"),
+                        Condition("SECTOR_PLAYERS_ABESNT", qty="2"),
 
                         "I've also managed to assemble some repair droids for you.",
                         Event("SPAWN_NPC_CREW_3", "PLAYER"),
@@ -433,14 +433,14 @@ dialogues = {
                 Response("That's great news!"),
                 Choice("I will send the new Hyperdrive to the your ship's cargo hold.", [
                     [
-                        Condition("SERVER_VARIABLE_ABSENT", {"var_name": "USC_SPAWNED", "var_value": "1"}),
+                        Condition("SERVER_VARIABLE_ABSENT", var_name="USC_SPAWNED", var_value="1"),
 
                         "Install the Hyper Drive and travel to the USC station in sector [SECTOR].",
                         Event("SPAWN_USC", "PLAYER"),
                         Event("MAKE_USC_SECTOR_EXPLORED", "PLAYER"),
                     ],
                     [
-                        Condition("SERVER_VARIABLE_PRESENT", {"var_name": "USC_SPAWNED", "var_value": "1"}),
+                        Condition("SERVER_VARIABLE_PRESENT", var_name="USC_SPAWNED", var_value="1"),
 
                         "Install the Hyper Drive and travel to the USC station in sector VAR(USC_SECTOR).",
                     ],
@@ -459,7 +459,7 @@ dialogues = {
                 Event("START_HJ_TUTORIAL", "PLAYER"),
             ],
             [
-                Condition("SERVER_VARIABLE_PRESENT", {"var_name": "HJ_TUTORIAL_STARTED", "var_value": "1"}),
+                Condition("SERVER_VARIABLE_PRESENT", var_name="HJ_TUTORIAL_STARTED", var_value="1"),
 
                 Label("HJ"),
                 Choice("Please find Dr. Darius Graydon, at USC in sector VAR(USC_SECTOR)", [
