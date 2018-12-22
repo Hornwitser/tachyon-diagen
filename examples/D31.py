@@ -393,7 +393,7 @@ dialogues = {
                     ],
                     [
                         Condition("SERVER_VARIABLE_ABSENT", var_name="PLAYER_CREW_SPAWNED", var_value=1),
-                        Condition("SECTOR_PLAYERS_ABESNT", qty=3),
+                        Condition("SECTOR_PLAYERS_ABSENT", qty=3),
                         Condition("SECTOR_PLAYERS_PRESENT", qty=2),
 
                         "I've also managed to assemble some repair droids for you.",
@@ -402,7 +402,7 @@ dialogues = {
                     ],
                     [
                         Condition("SERVER_VARIABLE_ABSENT", var_name="PLAYER_CREW_SPAWNED", var_value=1),
-                        Condition("SECTOR_PLAYERS_ABESNT", qty=2),
+                        Condition("SECTOR_PLAYERS_ABSENT", qty=2),
 
                         "I've also managed to assemble some repair droids for you.",
                         Event("SPAWN_NPC_CREW_3", "PLAYER"),
