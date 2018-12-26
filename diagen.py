@@ -58,13 +58,9 @@ Choice = namedtuple('Choice', 'text choices')
 # choice subsection.
 _BaseCondition = namedtuple('Condition', 'type params')
 class Condition(_BaseCondition):
+    def __new__(cls, type, params={}, **extra):
+        return super().__new__(cls, type, {**params, **extra})
 
-    # Allow condition parameters be specified using key=value syntax
-    def __new__(cls, condition_type, params={}, **extra):
-        params = params.copy()
-        params.update(extra)
-
-        return super().__new__(cls, condition_type, params)
 
 # Specifies the any_condition attribute of a reply.  May only be used at the
 # start of a choice subsection.
