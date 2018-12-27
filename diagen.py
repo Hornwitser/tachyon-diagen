@@ -78,7 +78,7 @@ class AutoType:
 
 Auto = object.__new__(AutoType)
 
-class Reply:
+class ParsedReply:
     def __init__(self, target, text):
         self.id = Auto
         self.target = target
@@ -86,8 +86,7 @@ class Reply:
         self.conditions = []
         self.any_condition = None
 
-
-class Message:
+class ParsedMessage:
     def __init__(self, mid, text):
         self.id = mid
         self.text = text
@@ -95,7 +94,7 @@ class Message:
         self.response = Auto
         self.events = []
 
-class ChoiceSection:
+class ParsedChoice:
     def __init__(self, mid, text, choices):
         self.id = mid
         self.text = text
@@ -113,7 +112,7 @@ def auto(value, auto_value):
 
 def parse_reply(pos, section):
     """Parse reply modifiers from the start of a subsection"""
-    reply = Reply(Auto, Auto)
+    reply = ParsedReply(Auto, Auto)
     while pos < len(section):
         mod = section[pos]
 
@@ -158,7 +157,7 @@ def parse_dialogue(pos, section):
                 _, subsection = parse_dialogue(subpos, content)
                 choices.append((reply, subsection))
 
-            output.append(ChoiceSection(next_id, item.text, choices))
+            output.append(ParsedChoice(next_id, item.text, choices))
             next_id = Auto
 
         elif type(item) in (Condition, AnyCondition):
@@ -193,7 +192,7 @@ def parse_dialogue(pos, section):
             output[-1].response = item.text
 
         elif type(item) is str:
-            output.append(Message(next_id, item))
+            output.append(ParsedMessage(next_id, item))
             next_id = Auto
 
         else:
@@ -214,7 +213,7 @@ def assign_ids(section, mid_gen):
         if item.id is Auto:
             item.id = next(mid_gen)
 
-        if type(item) is ChoiceSection:
+        if type(item) is ParsedChoice:
             if len(item.choices) > 9:
                 # If there are more than 9 choices, R10 will sort before R2
                 rid_gen = map("R{:02}".format, count(1))
@@ -233,7 +232,7 @@ def resolve(section, end=None):
         if item.next is Auto:
             item.next = section[i+1].id if i+1 < len(section) else end
 
-        if type(item) is ChoiceSection:
+        if type(item) is ParsedChoice:
             for reply, sub in item.choices:
                 if reply.target is Auto:
                     reply.target = sub[0].id if sub else item.next
@@ -247,7 +246,7 @@ def flatten(section):
     """Creates a flat representation of a processed section"""
     output = []
     for item in section:
-        if type(item) is Message:
+        if type(item) is ParsedMessage:
             replies = []
             if item.response is not Auto or item.next is not None:
                 replies.append(FlatReply(
@@ -359,23 +358,23 @@ def xml_dialogues(dialogues, options):
 
 def debug_format(item, indent=0):
     """Format a pretty representation of a processed section"""
-    if type(item) is Message:
+    if type(item) is ParsedMessage:
         return (
-            f"{' '*indent}<Message id={item.id!r} text={item.text!r}"
+            f"{' '*indent}<ParsedMessage id={item.id!r} text={item.text!r}"
             f" next={item.next!r} response={item.response!r}"
             f" events={item.events}>"
         )
 
-    if type(item) is Reply:
+    if type(item) is ParsedReply:
         return (
-            f"{' '*indent}<Reply id={item.id!r} target={item.target!r}"
+            f"{' '*indent}<ParsedReply id={item.id!r} target={item.target!r}"
             f" text={item.text!r} conditions={item.conditions}"
             f" any_condition={item.any_condition}>"
         )
 
-    if type(item) is ChoiceSection:
+    if type(item) is ParsedChoice:
         return "\n".join([
-            f"{' '*indent}<ChoiceSection id={item.id!r} text={item.text!r}"
+            f"{' '*indent}<ParsedChoice id={item.id!r} text={item.text!r}"
             f" next={item.next!r} response={item.response!r}"
             f" events={item.events} choices=["
         ] + [debug_format(c, indent+4) + ',' for c in item.choices] + [
