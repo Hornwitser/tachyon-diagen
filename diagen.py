@@ -24,7 +24,7 @@
 
 from xml.etree.ElementTree import Comment, Element, ElementTree, SubElement
 from collections import namedtuple
-from itertools import count, dropwhile, takewhile
+from itertools import count
 
 __all__ = [
     'Label', 'Choice', 'Condition', 'AnyCondition', 'Goto', 'End',
@@ -111,19 +111,12 @@ def auto(value, auto_value):
     """Replace a value being Auto with auto_value"""
     return auto_value if value is Auto else value
 
-def is_choice_mod(item):
-    """Predicate for choice reply modifiers
-
-    Returns true if the item can modify a choice reply at start of a
-    section"""
-    return item is End or type(item) in (
-        Response, Condition, AnyCondition, Goto
-    )
-
-def reply_hoist(modifiers):
-    """Create reply object for a choice from a given set of modifiers"""
+def parse_reply(pos, section):
+    """Parse reply modifiers from the start of a subsection"""
     reply = Reply(Auto, Auto)
-    for mod in modifiers:
+    while pos < len(section):
+        mod = section[pos]
+
         if type(mod) is Response:
             reply.text = mod.text
 
@@ -140,28 +133,29 @@ def reply_hoist(modifiers):
             reply.target = mod.target
 
         else:
-            assert False, "This should not be possible"
+            break
+        pos += 1
+    return pos, reply
 
-    return reply
-
-
-def hoist(section):
-    """Create message objects and apply modifiers to them"""
+def parse_dialogue(pos, section):
+    """Parse message objects and apply modifiers to them"""
     if type(section) is tuple and len(section) == 1:
         msg = f"Got section packed into one element tuple, content: {section}"
         raise TypeError(msg)
 
     output = []
     next_id = Auto
-    for item in section:
+    while pos < len(section):
+        item = section[pos]
+
         if type(item) == Label:
             next_id = item.id
 
         elif type(item) == Choice:
             choices = []
             for content in item.choices:
-                reply = reply_hoist(takewhile(is_choice_mod, content))
-                subsection = hoist(dropwhile(is_choice_mod, content))
+                subpos, reply = parse_reply(0, content)
+                _, subsection = parse_dialogue(subpos, content)
                 choices.append((reply, subsection))
 
             output.append(ChoiceSection(next_id, item.text, choices))
@@ -206,10 +200,12 @@ def hoist(section):
             msg = f"Unkown item type {item.__class__.__name__}, value: {item}"
             raise TypeError(msg)
 
+        pos += 1
+
     if next_id is not Auto:
         raise TypeError("Label is not allowed at the end of a section")
 
-    return output
+    return pos, output
 
 def assign_ids(section, mid_gen):
     """Assign ids for messages and replies that has Auto as the id"""
@@ -345,7 +341,7 @@ def xml_dialogues(dialogues, options):
 
     dialogues_node = Element('dialogues')
     for name, section in dialogues.items():
-        section = hoist(section)
+        _, section = parse_dialogue(0, section)
         assign_ids(section, mid_gen)
         resolve(section)
         messages = flatten(section)
