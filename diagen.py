@@ -38,7 +38,15 @@ __all__ = [
 Label = namedtuple('Label', 'id')
 
 # Signal the end of the message stream.
-End = object()
+class EndType:
+    def __new__(cls):
+        return End
+
+    @staticmethod
+    def __repr__():
+        return 'End'
+
+End = object.__new__(EndType)
 
 # Continue with given id.
 Goto = namedtuple('Goto', 'target')
