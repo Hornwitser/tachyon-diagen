@@ -92,15 +92,7 @@ class ParsedMessage:
         self.text = text
         self.next = Auto
         self.response = Auto
-        self.events = []
-
-class ParsedChoice:
-    def __init__(self, mid, text, choices):
-        self.id = mid
-        self.text = text
-        self.next = Auto
-        self.response = Auto
-        self.choices = choices
+        self.choices = []
         self.events = []
 
 FlatMessage = namedtuple('FlatMessage', 'id text replies events')
@@ -157,7 +149,9 @@ def parse_dialogue(pos, section):
                 _, subsection = parse_dialogue(subpos, content)
                 choices.append((reply, subsection))
 
-            output.append(ParsedChoice(next_id, item.text, choices))
+            message = ParsedMessage(next_id, item.text)
+            message.choices.extend(choices)
+            output.append(message)
             next_id = Auto
 
         elif type(item) in (Condition, AnyCondition):
@@ -213,18 +207,17 @@ def assign_ids(section, mid_gen):
         if item.id is Auto:
             item.id = next(mid_gen)
 
-        if type(item) is ParsedChoice:
-            if len(item.choices) > 9:
-                # If there are more than 9 choices, R10 will sort before R2
-                rid_gen = map("R{:02}".format, count(1))
-            else:
-                rid_gen = map("R{}".format, count(1))
+        # If there are more than 9 choices, R10 will sort before R2
+        if len(item.choices) > 9:
+            rid_gen = map("R{:02}".format, count(1))
+        else:
+            rid_gen = map("R{}".format, count(1))
 
-            for reply, sub in item.choices:
-                if reply.id is Auto:
-                    reply.id = next(rid_gen)
+        for reply, sub in item.choices:
+            if reply.id is Auto:
+                reply.id = next(rid_gen)
 
-                assign_ids(sub, mid_gen)
+            assign_ids(sub, mid_gen)
 
 def resolve(section, end=None):
     """Resolve next, target and reply text references that are set to Auto"""
@@ -232,34 +225,24 @@ def resolve(section, end=None):
         if item.next is Auto:
             item.next = section[i+1].id if i+1 < len(section) else end
 
-        if type(item) is ParsedChoice:
-            for reply, sub in item.choices:
-                if reply.target is Auto:
-                    reply.target = sub[0].id if sub else item.next
+        for reply, sub in item.choices:
+            if reply.target is Auto:
+                reply.target = sub[0].id if sub else item.next
 
-                if reply.text is Auto:
-                    reply.text = item.response
+            if reply.text is Auto:
+                reply.text = item.response
 
-                resolve(sub, end=item.next)
+            resolve(sub, end=item.next)
 
 def flatten(section):
     """Creates a flat representation of a processed section"""
     output = []
     for item in section:
-        if type(item) is ParsedMessage:
-            replies = []
-            if item.response is not Auto or item.next is not None:
-                replies.append(FlatReply(
-                    'R1', item.next, item.response, [], None
-                ))
+        assert type(item) is ParsedMessage, "Should not be possible"
 
-            output.append(FlatMessage(
-                item.id, item.text, replies, item.events
-            ))
-
-        elif type(item):
-            replies = []
-            sub_outputs = []
+        replies = []
+        sub_outputs = []
+        if item.choices:
             for reply, sub in item.choices:
                 replies.append(FlatReply(
                     reply.id, reply.target, reply.text,
@@ -267,13 +250,11 @@ def flatten(section):
                 ))
                 sub_outputs.extend(flatten(sub))
 
-            output.append(FlatMessage(
-                item.id, item.text, replies, item.events
-            ))
-            output.extend(sub_outputs)
+        elif item.response is not Auto or item.next is not None:
+            replies.append(FlatReply('R1', item.next, item.response, [], None))
 
-        else:
-            assert False, "Should not be possible"
+        output.append(FlatMessage(item.id, item.text, replies, item.events))
+        output.extend(sub_outputs)
 
     return output
 
@@ -359,11 +340,13 @@ def xml_dialogues(dialogues, options):
 def debug_format(item, indent=0):
     """Format a pretty representation of a processed section"""
     if type(item) is ParsedMessage:
-        return (
+        return "\n".join([
             f"{' '*indent}<ParsedMessage id={item.id!r} text={item.text!r}"
             f" next={item.next!r} response={item.response!r}"
-            f" events={item.events}>"
-        )
+            f" events={item.events} choices=["
+        ] + [debug_format(c, indent+4) + ',' for c in item.choices] + [
+            f"{' '*indent}]>"
+        ])
 
     if type(item) is ParsedReply:
         return (
@@ -371,15 +354,6 @@ def debug_format(item, indent=0):
             f" text={item.text!r} conditions={item.conditions}"
             f" any_condition={item.any_condition}>"
         )
-
-    if type(item) is ParsedChoice:
-        return "\n".join([
-            f"{' '*indent}<ParsedChoice id={item.id!r} text={item.text!r}"
-            f" next={item.next!r} response={item.response!r}"
-            f" events={item.events} choices=["
-        ] + [debug_format(c, indent+4) + ',' for c in item.choices] + [
-            f"{' '*indent}]>"
-        ])
 
     if type(item) is list:
         return "\n".join([
