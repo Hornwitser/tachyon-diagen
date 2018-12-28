@@ -263,18 +263,15 @@ Directives apply for the most part _to messages_.  This means that
 unless care is taken to avoid mixing directives applying to the previous
 message with ones that apply to the next message the behaviour may be
 very confusing.  For example, in the following section the Event,
-Response and End applies to the `"that was all"` message, while the
-Label is only for the `"A new day"` message, meaning a Goto to Confusion
-will not trigger the event.
+Response and End all applies to the `"that was all"` message.  This
+means that even though the event and response appears after the End
+marker they are still triggered/shown.
 
 ```py
 "that was all",
-Label("Confusion"),
 End
-
 Event("EVENT", "PLAYER"),
 Response("Thank you"),
-"A new day",
 ```
 
 Future version may disallow this kind of order breakage.
@@ -357,7 +354,7 @@ Specifies that the next message should have the given id.  This directly
 corresponds to the id attribute of the message element in the XML
 output.
 
-Note: this may not be placed at the end of a section or sub section.
+Note: this may only be used directly in front of a message or Choice.
 
 
 ### Response(text)

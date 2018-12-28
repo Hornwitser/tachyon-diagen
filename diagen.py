@@ -136,66 +136,80 @@ def parse_reply(pos, section):
         pos += 1
     return pos, reply
 
+def parse_message(pos, section):
+    """Parse message with associated modifiers"""
+    mid = Auto
+
+    if type(section[pos]) is Label:
+        if pos == len(section):
+            raise TypeError("Label is not allowed at the end of a section")
+
+        mid = section[pos].id
+        pos += 1
+
+    if type(section[pos]) is str:
+        message = ParsedMessage(mid, section[pos])
+        pos += 1
+
+    elif type(section[pos]) is Choice:
+        choices = []
+        for content in section[pos].choices:
+            subpos, reply = parse_reply(0, content)
+            _, subsection = parse_dialogue(subpos, content)
+            choices.append((reply, subsection))
+
+        message = ParsedMessage(mid, section[pos].text)
+        message.choices.extend(choices)
+        pos += 1
+
+    elif mid is not Auto:
+        msg = f"{section[pos].__class__.__name__} is not allowed after a Label"
+        raise TypeError(msg)
+
+    else:
+        raise TypeError(f"parse_message called on {section[pos]}")
+
+    while pos < len(section):
+        item = section[pos]
+
+        if item is End:
+            message.next = None
+
+        elif type(item) is Goto:
+            message.next = item.target
+
+        elif type(item) is Event:
+            message.events.append(item)
+
+        elif type(item) is Response:
+            message.response = item.text
+
+        else:
+            break
+        pos += 1
+    return pos, message
+
+
 def parse_dialogue(pos, section):
-    """Parse message objects and apply modifiers to them"""
+    """Parse message objects and modifiers"""
     if type(section) is tuple and len(section) == 1:
         msg = f"Got section packed into one element tuple, content: {section}"
         raise TypeError(msg)
 
-    output = []
-    next_id = Auto
+    dialogue = []
     while pos < len(section):
         item = section[pos]
 
-        if type(item) == Label:
-            next_id = item.id
+        if type(item) in [Label, Choice, str]:
+            pos, message = parse_message(pos, section)
+            dialogue.append(message)
+            continue
 
-        elif type(item) == Choice:
-            choices = []
-            for content in item.choices:
-                subpos, reply = parse_reply(0, content)
-                _, subsection = parse_dialogue(subpos, content)
-                choices.append((reply, subsection))
-
-            message = ParsedMessage(next_id, item.text)
-            message.choices.extend(choices)
-            output.append(message)
-            next_id = Auto
-
-        elif type(item) in (Condition, AnyCondition):
+        elif type(item) in [
+            Condition, AnyCondition, EndType, Goto, Event, Response
+        ]:
             msg = f"{item.__class__.__name__} is not allowed here"
             raise TypeError(msg)
-
-        elif item is End:
-            if not output:
-                msg = "End is not allowed at the start of a section"
-                raise TypeError(msg)
-
-            output[-1].next = None
-
-        elif type(item) is Goto:
-            if not output:
-                msg = "Goto is not allowed at the start of a section"
-                raise TypeError(msg)
-
-            output[-1].next = item.target
-
-        elif type(item) is Event:
-            if not output:
-                msg = "Event is not allowed at the start of a section"
-                raise TypeError(msg)
-
-            output[-1].events.append(item)
-
-        elif type(item) is Response:
-            if not output:
-                msg = "Response is not allowed at the start of a section"
-                raise TypeError(msg)
-            output[-1].response = item.text
-
-        elif type(item) is str:
-            output.append(ParsedMessage(next_id, item))
-            next_id = Auto
 
         else:
             msg = f"Unkown item type {item.__class__.__name__}, value: {item}"
@@ -203,10 +217,7 @@ def parse_dialogue(pos, section):
 
         pos += 1
 
-    if next_id is not Auto:
-        raise TypeError("Label is not allowed at the end of a section")
-
-    return pos, output
+    return pos, dialogue
 
 def assign_ids(section, mid_gen):
     """Assign ids for messages and replies that has Auto as the id"""
