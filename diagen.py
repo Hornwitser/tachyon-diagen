@@ -282,7 +282,20 @@ SERVER_VAR_TYPES = [
     "SERVER_VARIABLE_ABSENT",
 ]
 
-def xml_conditions(node, conditions, options):
+def xml_params(node, param_node_name, params):
+    """Add possibly duplicated params to node"""
+    for key, value in params.items():
+        if type(value) is list:
+            for item in value:
+                if type(item) is int:
+                    item = str(item)
+                SubElement(node, param_node_name, {key: item})
+        else:
+            if type(value) is int:
+                value = str(value)
+            node.set(key, value)
+
+def xml_conditions(node, node_name, conditions, options):
     """Add xml condition and condition_param nodes from condition list"""
     for condition in conditions:
         if condition.type in SERVER_VAR_TYPES:
@@ -301,18 +314,8 @@ def xml_conditions(node, conditions, options):
                 index = 1 - SERVER_VAR_TYPES.index(condition.type)
                 condition = condition._replace(type=SERVER_VAR_TYPES[index])
 
-        condition_node = SubElement(node, 'condition', type=condition.type)
-
-        for key, value in condition.params.items():
-            if type(value) is list:
-                for item in value:
-                    if type(item) is int:
-                        item = str(item)
-                    SubElement(condition_node, 'condition_param', {key: item})
-            else:
-                if type(value) is int:
-                    value = str(value)
-                condition_node.set(key, value)
+        condition_node = SubElement(node, node_name, type=condition.type)
+        xml_params(condition_node, 'condition_param', condition.params)
 
 def xml_messages(node, messages, options):
     """Add xml message nodes to dialog node from flat message list"""
@@ -332,7 +335,7 @@ def xml_messages(node, messages, options):
             if reply.any_condition is not None:
                 reply_node.set('any_condition', reply.any_condition)
 
-            xml_conditions(reply_node, reply.conditions, options)
+            xml_conditions(reply_node, 'condition', reply.conditions, options)
 
 def xml_dialogues(dialogues, options):
     """Create dialogues node from diagen dialogue mapping"""
