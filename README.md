@@ -354,7 +354,7 @@ Specifies that the next message should have the given id.  This directly
 corresponds to the id attribute of the message element in the XML
 output.
 
-Note: this may only be used directly in front of a message or Choice.
+Attaches to the next message or the next choice.
 
 
 ### Response(text)
@@ -364,12 +364,16 @@ at the start of a choice section it specifies the text of that choice.
 When used imminently after a Choice section it sets the default response
 text for all choices in that choice section.
 
+Attaches to the previous message or the choice subsection.
+
 
 ### Goto(target)
 
 Continue the message flow from another message.  Works by setting the
 next attribute on the reply of the previous message to the given target.
 Target should be a message id set by Label.
+
+Attaches to the previous message or the choice subsection.
 
 
 ### End
@@ -379,12 +383,16 @@ automatically linked via the next attribute of the reply element, this
 flag specifies that the previous message should not be linked, and thus
 ends the dialogue there.
 
+Attaches to the previous message or the choice subsection.
+
 
 ### Event(id, target)
 
 Attach an event to the previous message.  This tacks an `<event>`
 element to the previous message where id and target correspond to their
 respective attributes in the XML.
+
+Attaches to the previous message or the previous choice.
 
 
 ### Choice(text, choices)
@@ -414,11 +422,15 @@ for each element in the list into the generated XML.  Otherwise the
 short form of putting it as an attribute to the `<condition>` element is
 used instead.
 
+Attaches to the choice subsection.
+
 
 ### AnyCondition(value)
 
 Specifies the `any_condition` attribute of a reply.  Only usable at the
 start of a subsection inside a Choice.
+
+Attaches to the choice subsection.
 
 
 Examples
