@@ -1,6 +1,9 @@
 # Recreation of the WorldGen/Dialogues/D31.xml file from release a0819
 # as a Tachyon Diagen script
 
+from itertools import chain
+
+
 # Shorthand for adding tutorial skip
 def skippable(message):
     return Choice(message, [
@@ -38,7 +41,7 @@ dialogues = {
                     skippable(item) if type(item) is str else item
                     for item in [
                         "Thank God! I thought I was the only survivor!",
-                        Event("SS31_STOP_CALLING_HELP", "PLAYER"),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="SS31_STOP_CALLING_HELP", var_value=1),
                         Response("Who are you?"),
                         "I'm [NPC_NAME], the captain of this station...  Well what's left of it...",
                         Response("What happened here?"),
@@ -64,8 +67,8 @@ dialogues = {
                     [Response("I'm on it")],
                 ]),
                 "Thanks. Speak to me when you're done.",
-                Event("START_TUTORIALS", "PLAYER"),
-                Event("START_REPAIR_TUTORIAL", "PLAYER"),
+                InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="TUTORIALS_STARTED", var_value=1),
+                InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="REPAIR_TUTORIAL_STARTED", var_value=1),
                 End,
 
                 Label("Skip"),
@@ -75,12 +78,18 @@ dialogues = {
                         Response("Yes.  let's go!"),
 
                         "Ok. Don't forget to power up the systems!",
-                        Event("SET_PLAYER_OWNER", "PLAYER"),
+                        InlineEvent("MODIFY_SHIP", "PLAYER",
+                            for_ship_name="VAR(PLAYER_SHIP_NAME)", add_crew="[PLAYER_NAME]", set_owner="[PLAYER_NAME]",
+                        ),
                         Event("SPAWN_USC", "PLAYER"),
                         Event("MAKE_USC_SECTOR_EXPLORED", "PLAYER"),
-                        Event("SKIP_TUTORIAL0", "NPC"),
+                        InlineEvent("MODIFY_SHIP", "NPC", put_out_fires=1),
                         Event("SKIP_TUTORIAL", "PLAYER"),
-                        Event("SKIP_TUTORIAL2", "NPC"),
+                        InlineEvent("MODIFY_SHIP", "NPC",
+                            repair_breaches=1, repair_system_model="REPAIR1",
+                            repair_system_type=["OXYGEN", "SHEILDS", "CAPASITOR", "LASER_WEAPONS"],
+                            remove_system_type="LASER_WEAPONS"
+                        ),
                         Goto("HJ"),
                     ],
                 ]),
@@ -109,9 +118,9 @@ dialogues = {
                             [Response("OK.")],
                             [Response("How do I claim a ship for my self?"), Goto("CL_HOWTO")],
                         ]),
-                        Event("STOP_REPAIR_TUTORIAL", "PLAYER"),
-                        Event("START_CLAIM_TUTORIAL", "PLAYER"),
-                        Event("SS31_GO_TO_SENSORS", "PLAYER"),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="REPAIR_TUTORIAL_STARTED", var_value=1),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="CLAIM_TUTORIAL_STARTED", var_value=1),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="SS31_GO_TO_SENSORS", var_value=1),
                     ],
                     [
                         Response("No, not yet."),
@@ -162,11 +171,20 @@ dialogues = {
                             [Response("How do I pick up debris and cargo in space?"), Goto("PICK_HOWTO")],
                             [Response("How do I find items in space?"), Goto("FIND_HOWTO")],
                         ]),
-                        Event("STOP_CLAIM_TUTORIAL", "PLAYER"),
-                        Event("START_LJ_TUTORIAL", "PLAYER"),
-                        Event("SPAWN_HD_PARTS", "PLAYER"),
-                        Event("SS31_STOP_GO_TO_SENSORS", "PLAYER"),
-                        Event("SS31_GO_TO_LASER", "PLAYER"),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="CLAIM_TUTORIAL_STARTED", var_value=0),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="LJ_TUTORIAL_STARTED", var_value=1),
+
+                        InlineEvent("SPAWN_DEBRIS", "PLAYER"),
+                        *chain(*[
+                            [
+                                AddDebris(qty=1, owner="Science  station  D31", random_pos=1),
+                                Item(item_type="SHIP_SYSTEM", system_model=part),
+                            ]
+                            for part in ["TACSTAB", "TACCHAMB", "TACACC"]
+                        ]),
+
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="SS31_GO_TO_SENSORS", var_value=0),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="SS31_GO_TO_LASERS", var_value=1),
                     ],
                     [
                         Response("No, not yet"),
@@ -212,13 +230,24 @@ dialogues = {
                             [Response("Wait, how do I install or uninstall systems on the ship?"), Goto("INST_HOWTO")],
                             [Response("Wait, I don't know how to use weapons!"), Goto("SHOOT_HOWTO")],
                         ]),
-                        Event("STOP_LJ_TUTORIAL", "PLAYER"),
-                        Event("START_INST_TUTORIAL", "PLAYER"),
-                        Event("SPAWN_ASTEROIDS", "PLAYER"),
-                        Event("REMOVE_STATION_LASER", "NPC"),
-                        Event("ADD_LASER_TO_PLAYER", "PLAYER"),
-                        Event("SS31_GO_TO_SENSORS", "PLAYER"),
-                        Event("SS31_STOP_GO_TO_LASER", "PLAYER"),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="LJ_TUTORIAL_STARTED", var_value=0),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="INST_TUTORIAL_STARTED", var_value=0),
+
+                        InlineEvent("SPAWN_SHIP", "PLAYER", random_ship=1, min_event_qty=3, max_event_qty=3),
+                        AddShip(
+                            gen_ship_model=[f"ASTEROID{i}" for i in range(1, 20)],
+                            ship_name="Asteroid", random_pos=1, min_health=2,
+                            max_health=3, min_scrap=120, max_scrap=120
+                        ),
+
+                        InlineEvent("MODIFY_SHIP", "NPC",
+                            for_ship_name="Science  station  D31", remove_system_type="LASER_WEAPONS"
+                        ),
+                        InlineEvent("MODIFY_SHIP", "PLAYER",
+                            for_ship_name="VAR(PLAYER_SHIP_NAME)", add_system_model_to_cargo="Triple_laser1"
+                        ),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="SS31_GO_TO_SENSORS", var_value=1),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="SS31_GO_TO_LASERS", var_value=0),
                     ],
                     [
                         Response("Yes, I have the Tachyon Stabilizer on my ship."),
@@ -311,8 +340,8 @@ dialogues = {
                         "It must be the pirates' salvage team, comming to finish us up!",
                         "Use the laser I gave you, and blow them to space dust!",
                         "Speak to me again when the pirates are dealt with.",
-                        Event("STOP_INST_TUTORIAL", "PLAYER"),
-                        Event("START_FIGHT_TUTORIAL", "PLAYER"),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="LJ_TUTORIAL_STARTED", var_value=0),
+                        InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="FIGHT_TUTORIAL_STARTED", var_value=1),
                         Event("SPAWN_TUT_PIRATE", "PLAYER"),
                         Response("I'm on it!"),
                     ],
@@ -340,7 +369,6 @@ dialogues = {
                         Response("Can you tell me how to shoot weapons?"),
                         Goto("SHOOT_HOWTO"),
                     ],
-
                 ]),
             ],
             [
@@ -429,10 +457,15 @@ dialogues = {
                     [Response("I will get right on it.")],
                     [Response("Can you tell me how to do Hyper jumps?"), Goto("HJ_HOWTO")],
                 ]),
-                Event("ADD_HD_TO_PLAYER", "PLAYER"),
-                Event("REMOVE_D31_SAFEZONE", "NPC"),
-                Event("STOP_FIGHT_TUTORIAL", "PLAYER"),
-                Event("START_HJ_TUTORIAL", "PLAYER"),
+                InlineEvent("MODIFY_SHIP", "PLAYER",
+                    for_ship_name="VAR(PLAYER_SHIP_NAME)", add_system_model_to_cargo="FALCON_HD"
+                ),
+                InlineEvent("MODIFY_SHIP", "NPC",
+                    for_ship_name="Science  station  D31", remove_system_type_from_cargo=["LASER_WEAPONS", "CAPACITOR"],
+                    add_system_model_to_cargo="FIRE_BEAM5", safe_zone=0,
+                ),
+                InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="FIGHT_TUTORIAL_STARTED", var_value=0),
+                InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="HJ_TUTORIAL_STARTED", var_value=1),
             ],
             [
                 Condition("SERVER_VARIABLE_PRESENT", var_name="HJ_TUTORIAL_STARTED", var_value=1),
@@ -462,3 +495,164 @@ dialogues = {
         ]),
     ],
 }
+
+
+events = [
+    EventDef("SPAWN_SHIP", "SPAWN_D31",
+        sector="VAR(STARTING_SECTOR)",
+        chain_event=[
+            "SPAWN_PLAYER_SHIP", "MAIN_SPIKE",
+            # "SPAWN_CUSTOM_PLAYER_SHIP",
+        ],
+    ),
+
+    AddShip(
+        gen_ship_model="SS_D31", free_doors=1, free_med=1, free_oxygen=1, safe_zone=1, free_sensors=1,
+        ship_name="Science  station  D31", pos="6000:6000", min_health=10, max_health=20
+    ),
+    *[Ai(t) for t in ["LIFE_SUPPORT", "EVADER", "ENEMY_SHOOTER", "TRADER"]],
+
+    SpawnNPC(
+        qty=1, is_captain=1, random_name=1, race="HUMAN", home_system="DOOR_CONTROL",
+        spawn_at_home=1, dialogue="TUTORIAL", remote_dialogue="TUTORIAL"
+    ),
+    Ai("NPC_TALKER",
+        timer=15, ship=1, rand=1, mes=[
+            "Hello? Can anyone hear me?",
+            "If anyone can hear me, please come to the Door control room!",
+            "Somebody please help!",
+            "Press F1 if you don't know how to move.",
+            "Oh, I hope that beam in the cargo hold didn't burn up...",
+            "What a mess...",
+            "How did I get into this mess...",
+        ]
+    ),
+    Condition("SERVER_VARIABLE_ABSENT", var_name="SS31_STOP_CALLING_HELP", var_value=1),
+
+    Ai("NPC_LIFESUPPORT"),
+
+    Ai("NPC_DEFENDER"),
+    Condition("SERVER_VARIABLE_PRESENT", var_name="HJ_TUTORIAL_STARTED", var_value=1),
+
+    Ai("NPC_WORKER", systems="SENSORS", work_time=30, any_condition=0),
+    Condition("SERVER_VARIABLE_PRESENT", var_name="SS31_GO_TO_SENSORS", var_value=1),
+
+    Ai("NPC_WORKER", systems="LASER_WEAPONS", work_time=30, any_condition=0),
+    Condition("SERVER_VARIABLE_PRESENT", var_name="SS31_GO_TO_LASER", var_value=1),
+
+
+    EventDef("SPAWN_SHIP", "SPAWN_PLAYER_SHIP", chain_events_to_created=1, chain_event="PREPARE_PLAYER_SHIP"),
+    AddShip(gen_ship_model="FALCON", ship_name="VAR(PLAYER_SHIP_NAME)", pos="6000:6900", min_health=50, max_health=50),
+
+    EventDef("SPAWN_SHIP", "SPAWN_CUSTOM_PLAYER_SHIP",
+        chain_events_to_created=1, chain_event=["PREPARE_CUSTOM_PLAYER_SHIP", "PREPARE_PLAYER_SHIP"]
+    ),
+    AddShip(gen_ship_model="FALCON", ship_name="VAR(PLAYER_SHIP_NAME)", pos="6000:6900", min_health=50, max_health=50),
+
+    EventDef("MODIFY_SHIP", "PREPARE_CUSTOM_PLAYER_SHIP",
+        install_system_model=[
+            "PILOTING1", "FALCON_SHIELDS", "FALCON_REACTOR", "FALCON_ENGINES", "WEAPONS_CONTROL1",
+            "FALCON_SENSORS", "CAPACITOR1", "MEDICAL1", "FALCON_O2", "FALCON_DC",
+        ]
+    ),
+
+    EventDef("MODIFY_SHIP", "PREPARE_PLAYER_SHIP",
+        safe_zone=0, take_hull=45,
+        break_system_type=[
+            "PILOTING", "SHIELDS", "REACTOR", "ENGINES", "WEAPONS_CONTROL",
+            "SENSORS", "CAPACITOR", "MISSILE_WEAPONS", "MEDICAL",
+        ],
+        add_system_model_to_cargo="Basic_ML1"
+
+        # add_system_model_to_cargo="SHIPYARD", give_scrap=1000, give_drones=100,
+        # add_system_model_to_cargo="CLOAK1", add_system_model_to_cargo="TELEPORT2",
+    ),
+
+    EventDef("SPAWN_NPC", "SPAWN_NPC_CREW_2",
+        nonstop=1, min_event_qty=1, max_event_qty=1, chain_event="PLAYER_CREW_SPAWNED",
+        for_ship_name="VAR(PLAYER_SHIP_NAME)", random_npc=0,
+    ),
+    Condition("SERVER_VARIABLE_ABSENT", var_name="PLAYER_CREW_SPAWNED", var_value=1),
+    Condition("SECTOR_PLAYERS_ABSENT", qty=3),
+    Condition("SECTOR_PLAYERS_PRESENT", qty=2),
+    SpawnNPC(qty=1, is_crew=1, random_name=1, race="CYBORG", home_system="MEDICAL", spawn_at_home=1),
+    *[Ai(f"NPC_{t}") for t in ["LIFESUPPORT", "DEFENDER", "FIREMAN", "REPAIRMAN"]],
+    Ai("NPC_WORKER", systems="ENGINES:SHIELDS:REACTOR:HYPERDRIVE:MISSILE_WEAPONS:LASER_WEAPONS:", work_type=30),
+
+    EventDef("SPAWN_NPC", "SPAWN_NPC_CREW_3",
+        nonstop=1, min_event_qty=1, max_event_qty=1, chain_event="PLAYER_CREW_SPAWNED",
+        for_ship_name="VAR(PLAYER_SHIP_NAME)", random_npc=0,
+    ),
+    Condition("SERVER_VARIABLE_ABSENT", var_name="PLAYER_CREW_SPAWNED", var_value=1),
+    Condition("SECTOR_PLAYERS_ABSENT", qty=2),
+    SpawnNPC(qty=1, is_crew=1, random_name=1, race="CYBORG", home_system="MEDICAL", spawn_at_home=1),
+    *[Ai(f"NPC_{t}") for t in ["LIFESUPPORT", "DEFENDER", "FIREMAN", "REPAIRMAN"]],
+    Ai("NPC_WORKER", systems="ENGINES:SHIELDS:REACTOR:HYPERDRIVE:MISSILE_WEAPONS:LASER_WEAPONS:", work_type=30),
+
+    EventDef("SERVER_VARIABLE", "PLAYER_CREW_SPAWNED", var_name="PLAYER_CREW_SPAWNED", var_value=1),
+    EventDef("SERVER_VARIABLE", "SS31_STOP_CALLING_HELP", var_name="SS31_STOP_CALLING_HELP", var_value=1),
+    EventDef("SERVER_VARIABLE", "STOP_HJ_TUTORIAL", var_name="HJ_TUTORIAL_STARTED", var_value=0),
+
+    EventDef("MODIFY_SHIP", "ADD_CRYSTAL",
+        all_mob_ships=0, ignore_passenger_access=0,
+        add_system_model_to_cargo="CRYSTAL", chain_event="INC_CRYSTALS_COLLECTED",
+    ),
+
+    EventDef("SERVER_VARIABLE", "INC_CRYSTALS_COLLECTED", var_name="CRYSTALS_COLLECTED", var_value="++"),
+    EventDef("SERVER_VARIABLE", "DROP_CRYSTALS_COLLECTED", var_name="CRYSTALS_COLLECTED", var_value=0),
+
+    EventDef("THREAT_SPIKE", "MAIN_SPIKE",
+        nonstop=1, min_event_qty=1, max_event_qty=1, sector="VAR(STARTING_SECTOR)",
+        random_sector=0, radius_min=20, radius_max=20, threat_min=0, threat_max=0
+    ),
+
+    EventDef("MODIFY_SHIP", "SKIP_TUTORIAL",
+        for_ship_name="VAR(PLAYER_SHIP_NAME)", add_system_model_to_cargo=["FALCON_HD", "Triple_laser1"],
+        give_scrap=45, give_hull=45, give_missiles=4, repair_breaches=1, put_out_fires=1,
+        repair_system_type=[
+            "PILOTING", "ENGINES", "CAPACITOR", "REACTOR", "SHIELDS", "WEAPONS_CONTROL", "SENSORS", "MEDICAL",
+        ],
+        chain_event=[
+            "START_TUTORIALS",
+            "SS31_STOP_CALLING_HELP",
+            "SS31_GO_TO_SENSORS",
+            "START_HJ_TUTORIAL",
+            "SKIP_TUTORIAL2",
+            "SPAWN_NPC_CREW_3",
+            "SPAWN_NPC_CREW_2",
+        ]
+    ),
+
+    EventDef("SPAWN_SHIP", "SPAWN_TUT_PIRATE"),
+    AddShip(random_pos=1, min_health=5, max_health=7),
+    AddShip(
+        gen_ship_model="TUT_PIRATE", ship_qty=1, ship_name="Pirate scavenger", random_pos=1,
+        min_missile_ammo=20, max_missile_ammo=20, min_health=6, max_health=6,
+    ),
+    *[Ai(t) for t in ["LIFE_SUPPORT", "EVADER", "SENTRY"]],
+
+    SpawnNPC(qty=1, is_captain=1, random_name=1, name="Pirate ", race="HUMAN", home_system="PILOTING", spawn_at_home=1),
+    Ai("NPC_TALKER",
+        timer=30, rand=1, mes=[
+            "I'm gona destroy you!",
+            "I'm gona blow you to small pieces!",
+            "Your ship will make good scrap!",
+            "I'm going to salvage what's left of your ship!",
+            "I'm going to use the scrap from your ship to upgrade my Poop deck!",
+        ]
+    ),
+    *[Ai(f"NPC_{t}") for t in ["LIFESUPPORT", "DEFENDER", "FIREMAN", "REPAIRMAN"]],
+    Ai("NPC_WORKER", systems="SHEILDS:PILOTING", work_time=10),
+
+    SpawnNPC(qty=1, is_crew=1, random_name=1, name="Pirate ", race="HUMAN", home_system="OXYGEN", spawn_at_home=1),
+    *[Ai(f"NPC_{t}") for t in ["LIFESUPPORT", "DEFENDER", "FIREMAN", "REPAIRMAN"]],
+    Ai("NPC_WORKER", systems="DOOR_CONTROL:OXYGEN", work_time=20),
+
+    SpawnNPC(qty=1, is_crew=1, random_name=1, name="Pirate ", race="HUMAN", home_system="SHIELDS", spawn_at_home=1),
+    *[Ai(f"NPC_{t}") for t in ["LIFESUPPORT", "DEFENDER", "FIREMAN", "REPAIRMAN"]],
+    Ai("NPC_WORKER", systems="SHIELDS:LASER_WEAPONS", work_time=20),
+
+    SpawnNPC(qty=1, is_crew=1, random_name=1, name="Pirate ", race="HUMAN", home_system="ENGINES", spawn_at_home=1),
+    *[Ai(f"NPC_{t}") for t in ["LIFESUPPORT", "DEFENDER", "FIREMAN", "REPAIRMAN"]],
+    Ai("NPC_WORKER", systems="ENGINES:HYPERDRIVE", work_time=20),
+]

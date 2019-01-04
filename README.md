@@ -13,6 +13,8 @@ Contents
 - [Installation](#installation)
 - [Usage](#usage)
 - [Script format](#script-format)
+    * [Dialogues](#dialogues)
+    * [Events](#events)
     * [Order of Directives](#order-of-directives)
     * [Auto Generated Ids](#auto-generated-ids)
 - [Options Controlling Behaviour](#options-controlling-behaviour)
@@ -20,6 +22,7 @@ Contents
     - [mangle\_any\_value](#mangle_any_value)
     - [mangle\_empty\_value](#mangle_empty_value)
 - [Directives](#directives)
+    * [Note about params](#note-about-params)
     * [Label(id)](#labelid)
     * [Response(text)](#responsetext)
     * [Goto(target)](#gototarget)
@@ -28,18 +31,29 @@ Contents
     * [Choice(text, choices)](#choicetext-choices)
     * [Condition(type, params)](#conditiontype-params)
     * [AnyCondition(value)](#anyconditionvalue)
+    * [InlineEvent(type, target, name=None, params)][1]
+    * [EventDef(type, name, params)](#eventdeftype-name-params)
+    * [SpawnNPC(params)](#spawnnpcparams)
+    * [AddShip(params)](#addshipparams)
+    * [Ai(type, params)](#aitype-params)
+    * [AddDebris(params)](#adddebrisparams)
+    * [Item(params)](#itemparams)
 - [Examples](#examples)
+
+[1]: #inlineeventtype-target-namenone-params
 
 
 Motivation
 ----------
 
-The XML format used by Tachyon to author dialogues is very tedious to
-work with.  Writing a message that follows up from another message
-requires manually assigning message ids and referencing these in reply
-blocks that have their own ids in addition.  There's no nested
+The XML format used by Tachyon to author dialogues and events is very
+tedious to work with.  Writing a message that follows up from another
+message requires manually assigning message ids and referencing these in
+reply blocks that have their own ids in addition.  There's no nested
 definitons, causing large multiple choice dialogs to have the the
-choices and the response texts spread far appart.
+choices and the response texts spread far appart and events have to be
+defined in a separate file despite many events being only referenced by
+one dialogue message.
 
 Worse still, because of the manual id assigment and referencing moving
 arround and reorganizing text may in the worst case require renumbering
@@ -87,14 +101,16 @@ Usage
 
 In a command line in the directory the script is installed to:
 
-`.\diagen.py script.py [output file]` (Windows command and powershell)  
-`./diagen.py script.py [output file]` (Linux command line)
+`.\diagen.py script.py [dialog file] [event file]` (Windows command and
+powershell)  
+`./diagen.py script.py [dialog file] [event file]` (Linux command line)
 
 Generates a dialogue XML file based on a python script and writes it to
-output.xml.  If not specified the output file defaults to the name of
-the input file with a .xml suffix.
+output.xml.  If not specified the dialog output file defaults to the
+name of the input file with a .xml suffix, and the event file defaults
+to the name of the input file pluss _event.xml.
 
-Both the script and the output file may be denoted as `-` to indicate
+Both the script and the output files may be denoted as `-` to indicate
 they should be read from standard input or written to standard outupt
 respectively.
 
@@ -104,8 +120,9 @@ Script format
 
 A Diagen script is a Python script that sets a global variable named
 `dialogues` to a dictionary of dialogue name to a dialogue section
-definetion.  In other words, a typical script will have the following
-form:
+definetion.  And optionally sets another global variable named `events`
+with event definitions.  In other words, a typical script will have the
+following form:
 
 ```py
 dialogues = {
@@ -114,7 +131,14 @@ dialogues = {
         ...
     ],
 }
+
+events = [
+    EventDef("EVENT_TYPE", "MY_EVENT", ...),
+]
 ```
+
+
+### Dialogues
 
 Dialogue sections are Python lists consisting of strings and
 [Directives](#directives).  Strings correspond to the text content of
@@ -257,15 +281,73 @@ Choice("Greetings", [
 ]),
 ```
 
+As an alternative to referencing an event definition with Event, the
+event can be defined inside dialogue sections with the [InlineEvent][1]
+directive.  InlineEvent takes as argument the event type, the target,
+and optionally the name of the event, followed by the event parameters.
+If not given the name of an inline event is automatically generated
+based on the name of the dialogue.  See the next section for more
+details on defining events.
+
+
+### Events
+
+Events are primarily defined with [EventDef](#eventdeftype-name-params)
+inside the `events` global variable.  For example to create an event
+named SET\_MY\_VAR which will set the server variable MY\_VAR to 1 when
+invoked one can use the following:
+
+```py
+events = [
+    EventDef("SERVER_VARIABLE", "SET_MY_VAR",
+        var_name="MY_VAR", var_value="1"
+    ),
+]
+```
+
+Some events have aditional elementes in the XML specifying various extra
+things associated with the event.  For SPAWN\_SHIP there's the
+`<add_ship>` element specifying the ship.  In diagen this is specified
+with the [AddShip](#addshipparams) directive after the event definition.
+For example to spawn a particularly bad pirate ship, the following
+diagen code can be used:
+
+```py
+EventDef("SPAWN_SHIP", "MY_PIRATE_SHIP_SPAWN"),
+AddShip(
+    gen_ship_model="MY_PIRATE_SHIP_MODEL", ship_qty=1, ship_name="Pirate",
+    random_pos=1, min_healt=10, max_health=10
+),
+Ai("LIFE_SUPPORT"),
+Ai("EVADER"),
+Ai("SENTRY"),
+
+SpawnNPC(
+    qty=1, is_captain=1, random_name=1, race="HUMAN",
+    home_system="PILOTING", spawn_at_home=1
+),
+Ai("NPC_TALKER", timer=30, mes="I will shot you to bits!"),
+```
+
+Note: To reduce distracting clutter, only the events content is shown
+here.
+
+This also shows how [Ai](#aitype-params) can be added to AddShip, as
+well as [SpawnNPC](#spawnnpcparams), and generally ends up attached
+whichever is the closest previous applicable directive.  There is also
+[AddDebris](#adddebrisparams) and [Item](#itemparams) for placing items
+into sectiors.
+
+
 ### Order of Directives
 
-Directives apply for the most part _to messages_.  This means that
-unless care is taken to avoid mixing directives applying to the previous
-message with ones that apply to the next message the behaviour may be
-very confusing.  For example, in the following section the Event,
-Response and End all applies to the `"that was all"` message.  This
-means that even though the event and response appears after the End
-marker they are still triggered/shown.
+Directives apply for the most part to some previous directive or
+message.  This means that unless care is taken to avoid mixing
+directives altering flow of message with ones that apply to the message
+itself the behaviour may be very confusing.  For example, in the
+following section the Event, Response and End all applies to the `"that
+was all"` message.  This means that even though the event and response
+appears after the End marker they are still triggered/shown.
 
 ```py
 "that was all",
@@ -279,9 +361,12 @@ Future version may disallow this kind of order breakage.
 
 ### Auto Generated Ids
 
-Ids generated are of the form `M{unique number}`for messages and
+Ids generated are of the form `M{unique number}` for messages and
 `R{number}` for replies.  The message id for a message can be overriden
 with the Label directive
+
+For inline events with auto generated names its of the form `{dialogue
+name}_E{number}`
 
 Since I'm not aware of any use for the reply id, there's no way to
 influence the reply ids generated.
@@ -348,6 +433,26 @@ messages should have.  There's also subsections thare are made with the
 [Choice](#choicetext-choices) directive.
 
 
+### Note about params
+
+Many directives have a `params` parameter.  These are name, value pairs
+that have form `name="value", ...` and correspond to the `<node_param
+name="value" \>` element in the XML, where `node` is the relevant tag,
+i.e. `event` for an event node.  Values can also be integeres instead of
+strings, in this case they will be converted to strings in the XML
+output.
+
+If a param value is a list, it'll output one `<node_param>` element for
+each element in the list into the generated XML.  Otherwise the short
+form of putting it as an attribute to the `<node>` element is used.
+
+It's also possible to specify params as a python dictionary mapping name
+to values.  This should be supplied either as the position argument
+corresponding to params, or as a keyword argument named `params`.
+If both params and keyword arguments are used, both will be included and
+the latter with take precedence if keys are duplicated.
+
+
 ### Label(id)
 
 Specifies that the next message should have the given id.  This directly
@@ -405,24 +510,20 @@ Goto and End added to the start of the subsection
 
 ### Condition(type, params)
 
-Specifies the condition of a reply.  Can only be used at the start of a
-subsection inside a Choice.  The params is of the form `name="value",
-...` and correspond to the `<condition_param name="value" \>` element in
-the XML.  Values can also be integeres instead of strings, in this case
-they will be converted to strings in the XML output.
+Specifies the condition of a reply, event, or AI.  Can only be used at
+the start of a choice subsection, after an EventDef or InlineEvent
+directive, or after an Ai directive.
 
-It's also possible to specify params as a python dictionary mapping name
-to values.  This should be supplied either as a position argument after
-type, or keyword argument named `params`.  If both params and keyword
-arguments are used, both will be included and the latter with take
-precedence if keys are duplicated.
+The element created in the xml depens on what the condition is applied
+to.  For replies in inside Choice subsections and events it creates a
+`<condition>` element, for Ai's attached to SpawnNPC directives it
+creates an `<npc_ai_condition>` element, and for Ai's attached to
+AddShip directives it creates an `<ship_ai_condition>`.
 
-If a param value is a list, it'll output one `<conditior_param>` element
-for each element in the list into the generated XML.  Otherwise the
-short form of putting it as an attribute to the `<condition>` element is
-used instead.
+See [note about params](#note-about-params) for a description of the
+`params` parameter.
 
-Attaches to the choice subsection.
+Attaches to the choice subsection, or the previous event or AI.
 
 
 ### AnyCondition(value)
@@ -431,6 +532,104 @@ Specifies the `any_condition` attribute of a reply.  Only usable at the
 start of a subsection inside a Choice.
 
 Attaches to the choice subsection.
+
+
+### InlineEvent(type, target, name=None, params)
+
+Defines and attaches an event to the previous message.  Like Event, but
+instead of referencing an event defined elsewhere the event is defined
+inline with the dialogue.  The name of the event if not defined is
+generated based on the dialoge name and takes the form
+`{dialogue name}_E{number}`.
+
+See [note about params](#note-about-params) for a description of the
+`params` parameter.
+
+Attaches to the previous message.
+
+
+### EventDef(type, name, params)
+
+Defines an event in the event list.  This corresponds to the `<event>`
+element in an events XML file.
+
+See [note about params](#note-about-params) for a description of the
+`params` parameter.
+
+
+### SpawnNPC(params)
+
+Adds an NPC node to the previous event or ship.  When used after an
+EventDef it creates a `<spawn_npc>` element in the event.  When used
+after a AddShip it creates a `<spawn_npc_on_ship>` element in the ship.
+Both of these support adding AIs with the Ai directive after this one.
+
+As a convenience all parameter names passed to SpawnNPC is prefixed with
+`npc_` in the generated XML.  This means that parameters such as
+`npc_qty`, `npc_is_crew`, `npc_race` etc, should be written as `qty`,
+`is_crew`, `race`, etc.
+
+See [note about params](#note-about-params) for a description of the
+`params` parameter.
+
+Attaches to the previous EventDef, InlineEvent, or AddShip.
+
+
+### AddShip(params)
+
+Adds a `<add_ship>` node to the previous event.  NPCs can be spawned on
+the ship by using the SpawnNPC directive after this one.  AIs to attach
+to ship can also be added with the Ai directive, but note that this
+would have to come before any SpawnNPC directives, otherwise the Ai
+directive would apply to those instead.
+
+See [note about params](#note-about-params) for a description of the
+`params` parameter.
+
+Attaches to the previous EventDef or InlineEvent.
+
+
+### Ai(type, params)
+
+Adds an AI element to an NPC or ship.  When put after an AddShip it
+procudes a `<ship_ai>` element inside the ship element, and when put
+after a SpawnNPC it produces an `<npc_ai>` element inside the spawn npc
+element.  Both of these support adding conditions to the AI element by
+using the Condition directive after this one.
+
+See [note about params](#note-about-params) for a description of the
+`params` parameter.
+
+Attaches to the previous SpawnNPC or AddShip.
+
+
+### AddDebris(params)
+
+Used for the SPAWN\_DEBRIS event to add an `<add_debris>` nodes to it.
+For example, a simple debris spawning event can be defined as.
+
+```py
+EventDef("SPAWN_DEBRIS", "MY_DEBRIS"),
+AddDebris(owner="Lost ship", random_pos=1),
+Item(item_type="SHIP_SYSTEM", system_model="SENSORS1"),
+Item(item_type="SHIP_SYSTEM", system_model="SENSORS2"),
+```
+
+See [note about params](#note-about-params) for a description of the
+`params` parameter.
+
+Attaches to the previous EventDef or InlineEvent.
+
+
+### Item(params)
+
+Item definition for AddDebris, corresponds to the `<debris_item>`
+element.  Should have an `item_type` and a `system_model` parameter.
+
+See [note about params](#note-about-params) for a description of the
+`params` parameter.
+
+Attaches to the previous AddDebris.
 
 
 Examples
@@ -447,6 +646,9 @@ dialogues = {
                 Response("No thanks"),
 
                 "Alright then, no tea for you",
+                InlineEvent("SERVER_VARIABLE",
+                    var_name="PLAYER_DECLINED_TEA", var_value=1
+                ),
             ],
             [
                 Response("Yes please"),
@@ -458,29 +660,51 @@ dialogues = {
         ]),
     ],
 }
+
+events = [
+    EventDef("MODIFY_SHIP", "GIVE_TEA",
+        all_mob_ships=0, ignore_passenger_access=0,
+        add_system_model_to_cargo="TeaBrewer"
+    ),
+]
 ```
 
-When processed through Tachyon Diagen it produces the following XML.
+When processed through Tachyon Diagen it produces the following XML for
+the dialogues:
 
 ```xml
 <?xml version='1.0' encoding='UTF-8'?>
 <dialogues>
+    <!-- Generated by diagen.py -->
     <dialogue name="Captain">
         <start>M0</start>
         <message id="M0" text="Hello [PLAYER_NAME], I'm the captain of this ship">
-            <reply id="R2" target="M1" text="[SKIP]..." />
+            <reply id="R1" text="[SKIP]..." next="M1" />
         </message>
         <message id="M1" text="Would you like some tea?">
-            <reply id="R0" target="M2" text="No thanks" />
-            <reply id="R1" target="M3" text="Yes please" />
+            <reply id="R1" text="No thanks" next="M2" />
+            <reply id="R2" text="Yes please" next="M3" />
         </message>
-        <message id="M2" text="Alright then, no tea for you" />
+        <message id="M2" text="Alright then, no tea for you">
+            <event id="Captain_E0" target="PLAYER" />
+        </message>
         <message id="M3" text="Here you go. Now go out there and fight some foes!">
             <event id="GIVE_TEA" target="PLAYER" />
-            <reply id="R3" text="Aye sir!" />
+            <reply id="R1" text="Aye sir!" />
         </message>
     </dialogue>
 </dialogues>
+```
+
+And the following XML for the events:
+
+```xml
+<?xml version='1.0' encoding='UTF-8'?>
+<events>
+    <!-- Generated by diagen.py -->
+    <event type="MODIFY_SHIP" name="GIVE_TEA" all_mob_ships="0" ignore_passenger_access="0" add_system_model_to_cargo="TeaBrewer" />
+    <event type="SERVER_VARIABLE" name="Captain_E0" var_name="PLAYER_DECLINED_TEA" var_value="1" />
+</events>
 ```
 
 For more complete examples see the the [examples directory](examples).

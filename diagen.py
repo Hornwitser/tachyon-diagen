@@ -28,11 +28,13 @@ from itertools import count
 
 __all__ = [
     'Label', 'Choice', 'Condition', 'AnyCondition', 'Goto', 'End',
-    'Event', 'Response', 'xml_dialogues', 'xml_pretty',
+    'Event', 'Response', 'InlineEvent', 'EventDef', 'ChainEvent', 'SpawnNPC',
+    'AddShip', 'Ai', 'AddDebris', 'Item', 'xml_dialogues', 'xml_pretty',
 ]
 
 
-# Message Dirictives
+
+## Message Dirictives
 
 # Set the next message's id
 Label = namedtuple('Label', 'id')
@@ -62,8 +64,62 @@ Response = namedtuple('Response', 'text')
 # AnyCondition, Goto and End put at the start of a choice subsection
 Choice = namedtuple('Choice', 'text choices')
 
-# Specifies the condition of a choice.  May only be used at the start of a
-# choice subsection.
+# Attach an event defined inline to the previous message
+_BaseInlineEvent = namedtuple('InlineEvent', 'type target name params')
+class InlineEvent(_BaseInlineEvent):
+    def __new__(cls, type, target, name=None, params={}, **extra):
+        return super().__new__(cls, type, target, name, {**params, **extra})
+
+
+## Event Directives
+
+# Define an event
+_BaseEventDef = namedtuple('EventDef', 'type name params')
+class EventDef(_BaseEventDef):
+    def __new__(cls, type, name, params={}, **extra):
+        return super().__new__(cls, type, name, {**params, **extra})
+
+# Define an event and attach it to the previous event
+_BaseChainEvent = namedtuple('ChainEvent', 'type name params')
+class ChainEvent(_BaseChainEvent):
+    def __new__(cls, type, name=None, params={}, **extra):
+        return super().__new__(cls, type, name, {**params, **extra})
+
+# Defines an npc spawn for either an event or a ship
+_BaseSpawnNPC = namedtuple('SpawnNPC', 'params')
+class SpawnNPC(_BaseSpawnNPC):
+    def __new__(cls, params={}, **extra):
+        return super().__new__(cls, {**params, **extra})
+
+# Defines a ship for an event
+_BaseAddShip = namedtuple('AddShip', 'params')
+class AddShip(_BaseAddShip):
+    def __new__(cls, params={}, **extra):
+        return super().__new__(cls, {**params, **extra})
+
+# Defines an ai for either a ship or npc
+_BaseAi = namedtuple('Ai', 'type params')
+class Ai(_BaseAi):
+    def __new__(cls, type, params={}, **extra):
+        return super().__new__(cls, type, {**params, **extra})
+
+# Defines a debris node for an event
+_BaseAddDebris = namedtuple('AddDebris', 'params')
+class AddDebris(_BaseAddDebris):
+    def __new__(cls, params={}, **extra):
+        return super().__new__(cls, {**params, **extra})
+
+# Defines an item for a debris node
+_BaseItem = namedtuple('Item', 'params')
+class Item(_BaseItem):
+    def __new__(cls, params={}, **extra):
+        return super().__new__(cls, {**params, **extra})
+
+
+## Shared Directives
+
+# Specifies the condition of a choice, event or ai.  May only be used at the
+# start of a choice subsection or after an event, ship or npc definition.
 _BaseCondition = namedtuple('Condition', 'type params')
 class Condition(_BaseCondition):
     def __new__(cls, type, params={}, **extra):
@@ -103,6 +159,39 @@ class ParsedMessage:
         self.choices = []
         self.events = []
 
+class ParsedEvent:
+    def __init__(self, event_type, name, params):
+        self.type = event_type
+        self.name = name
+        self.params = params
+        self.target = None
+        self.conditions = []
+        self.npcs = []
+        self.debris = []
+        self.ships = []
+
+class ParsedDebri:
+    def __init__(self, params):
+        self.params = params
+        self.items = []
+
+class ParsedAi:
+    def __init__(self, ai_type, params):
+        self.type = ai_type
+        self.params = params
+        self.conditions = []
+
+class ParsedNPC:
+    def __init__(self, params):
+        self.params = params
+        self.ais = []
+
+class ParsedShip:
+    def __init__(self, params):
+        self.params = params
+        self.ais = []
+        self.npcs = []
+
 FlatMessage = namedtuple('FlatMessage', 'id text replies events')
 FlatReply = namedtuple('FlatReply', 'id target text conditions any_condition')
 
@@ -135,6 +224,148 @@ def parse_reply(pos, section):
             break
         pos += 1
     return pos, reply
+
+def parse_debris(pos, section):
+    """Parse derbis node with items"""
+    if type(section[pos]) is not AddDebris:
+        raise TypeError(f"parse_debris called on {section[pos]}")
+
+    debris = ParsedDebri(section[pos].params)
+    pos += 1
+
+    while pos < len(section):
+        item = section[pos]
+
+        if type(item) is Item:
+            debris.items.append(item)
+
+        else:
+            break
+        pos += 1
+    return pos, debris
+
+def parse_ai(pos, section):
+    """Parse AI node with conditions"""
+    if type(section[pos]) is not Ai:
+        raise TypeError(f"parse_ai called on {section[pos]}")
+
+    ai = ParsedAi(section[pos].type, section[pos].params)
+    pos += 1
+
+    while pos < len(section):
+        item = section[pos]
+
+        if type(item) is Condition:
+            ai.conditions.append(item)
+
+        else:
+            break
+        pos += 1
+    return pos, ai
+
+def parse_npc(pos, section):
+    """Parse NPC node with AIs"""
+    if type(section[pos]) is not SpawnNPC:
+        raise TypeError(f"parse_npc called on {section[pos]}")
+
+    npc = ParsedNPC(section[pos].params)
+    pos += 1
+
+    while pos < len(section):
+        item = section[pos]
+
+        if type(item) is Ai:
+            pos, ai = parse_ai(pos, section)
+            npc.ais.append(ai)
+            continue
+
+        else:
+            break
+        pos += 1
+    return pos, npc
+
+def parse_ship(pos, section):
+    """Parse ship with AIs and NPCs"""
+    if type(section[pos]) is not AddShip:
+        raise TypeError(f"parse_ship called on {section[pos]}")
+
+    ship = ParsedShip(section[pos].params)
+    pos += 1
+
+    while pos < len(section):
+        item = section[pos]
+
+        if type(item) is Ai:
+            pos, ai = parse_ai(pos, section)
+            ship.ais.append(ai)
+            continue
+
+        elif type(item) is SpawnNPC:
+            pos, npc = parse_npc(pos, section)
+            ship.npcs.append(npc)
+            continue
+
+        else:
+            break
+        pos += 1
+    return pos, ship
+
+def parse_event(pos, section):
+    """Parse event with conditions, npcs, ships and debris"""
+    item = section[pos]
+    if type(item) is InlineEvent:
+        event = ParsedEvent(item.type, item.name, item.params)
+        event.target = item.target
+        if event.name is None:
+            event.name = Auto
+    elif type(item) is EventDef:
+        event = ParsedEvent(item.type, item.name, item.params)
+    else:
+        raise TypeError(f"parse_event called on {item}")
+    pos += 1
+
+    while pos < len(section):
+        item = section[pos]
+
+        if type(item) is Condition:
+            event.conditions.append(item)
+
+        elif type(item) is SpawnNPC:
+            pos, npc = parse_npc(pos, section)
+            event.npcs.append(npc)
+            continue
+
+        elif type(item) is AddDebris:
+            pos, debris = parse_debris(pos, section)
+            event.debris.append(debris)
+            continue
+
+        elif type(item) is AddShip:
+            pos, ship = parse_ship(pos, section)
+            event.ships.append(ship)
+            continue
+
+        else:
+            break
+        pos += 1
+    return pos, event
+
+def parse_events(section):
+    """Parse event objects and modifiers"""
+    pos = 0
+    events = []
+    while pos < len(section):
+        item = section[pos]
+
+        if type(item) is EventDef:
+            pos, event = parse_event(pos, section)
+            events.append(event)
+
+        else:
+            msg = f"Unkown item type {item.__class__.__name__}, value: {item}"
+            raise TypeError(msg)
+
+    return events
 
 def parse_message(pos, section):
     """Parse message with associated modifiers"""
@@ -184,6 +415,11 @@ def parse_message(pos, section):
         elif type(item) is Response:
             message.response = item.text
 
+        elif type(item) is InlineEvent:
+            pos, event = parse_event(pos, section)
+            message.events.append(event)
+            continue
+
         else:
             break
         pos += 1
@@ -218,12 +454,15 @@ def parse_dialogue(pos, section):
 
     return pos, dialogue
 
-def assign_ids(section, mid_gen):
-    """Assign ids for messages and replies that has Auto as the id"""
-
+def assign_ids(section, mid_gen, ename_gen):
+    """Assign ids for messages, replies and events that has Auto as the id"""
     for item in section:
         if item.id is Auto:
             item.id = next(mid_gen)
+
+        for event in item.events:
+            if type(event) is ParsedEvent and event.name is Auto:
+                event.name = next(ename_gen)
 
         # If there are more than 9 choices, R10 will sort before R2
         if len(item.choices) > 9:
@@ -235,7 +474,7 @@ def assign_ids(section, mid_gen):
             if reply.id is Auto:
                 reply.id = next(rid_gen)
 
-            assign_ids(sub, mid_gen)
+            assign_ids(sub, mid_gen, ename_gen)
 
 def resolve(section, end=None):
     """Resolve next, target and reply text references that are set to Auto"""
@@ -252,11 +491,32 @@ def resolve(section, end=None):
 
             resolve(sub, end=item.next)
 
+def separate_events(message):
+    """Separate event calls from event definitions in a message"""
+    calls = []
+    defs = []
+    for event in message.events:
+        if type(event) is Event:
+            calls.append(event)
+
+        elif type(event) is ParsedEvent:
+            calls.append(Event(event.name, event.target))
+            defs.append(event)
+
+        else:
+            assert False, "Should not be possible"
+
+    return calls, defs
+
 def flatten(section):
     """Creates a flat representation of a processed section"""
     output = []
+    events = []
     for item in section:
         assert type(item) is ParsedMessage, "Should not be possible"
+
+        event_calls, event_defs = separate_events(item)
+        events.extend(event_defs)
 
         replies = []
         sub_outputs = []
@@ -266,15 +526,17 @@ def flatten(section):
                     reply.id, reply.target, reply.text,
                     reply.conditions, reply.any_condition
                 ))
-                sub_outputs.extend(flatten(sub))
+                sub_output, sub_defs = flatten(sub)
+                sub_outputs.extend(sub_output)
+                events.extend(sub_defs)
 
         elif item.response is not Auto or item.next is not None:
             replies.append(FlatReply('R1', item.next, item.response, [], None))
 
-        output.append(FlatMessage(item.id, item.text, replies, item.events))
+        output.append(FlatMessage(item.id, item.text, replies, event_calls))
         output.extend(sub_outputs)
 
-    return output
+    return output, events
 
 SERVER_VAR_TYPES = [
     "SERVER_VARIABLE_PRESENT",
@@ -341,14 +603,17 @@ def xml_dialogues(dialogues, options):
     mid_gen = map("M{}".format, count())
 
     dialogues_node = Element('dialogues')
+    extra_events = []
     for name, section in dialogues.items():
+        ename_gen = map(f"{name}_E{{}}".format, count())
         _, section = parse_dialogue(0, section)
-        assign_ids(section, mid_gen)
+        assign_ids(section, mid_gen, ename_gen)
         resolve(section)
-        messages = flatten(section)
+        messages, events = flatten(section)
         if not messages:
             raise ValueError(f"'{name}' has no messages")
 
+        extra_events.extend(events)
         dialogue_node = SubElement(dialogues_node, 'dialogue', name=name)
 
         start_node = SubElement(dialogue_node, 'start')
@@ -356,7 +621,49 @@ def xml_dialogues(dialogues, options):
 
         xml_messages(dialogue_node, messages, options)
 
-    return dialogues_node
+    return dialogues_node, extra_events
+
+def xml_ai(node, prefix, ais, options):
+    """Create ai nodes with conditions from list of ais"""
+    for ai in ais:
+        ai_node = SubElement(node, f'{prefix}', type=ai.type)
+        xml_params(ai_node, f'{prefix}_param', ai.params)
+        xml_conditions(ai_node, f'{prefix}_conditions', ai.conditions, options)
+
+def xml_npcs(node, node_name, npcs, options):
+    """Create npc nodes with ais from list of npcs"""
+    for npc in npcs:
+        npc_node = SubElement(node, node_name)
+        params = {f'npc_{k}': v for k, v in npc.params.items()}
+        xml_params(npc_node, 'npc_param', params)
+        xml_ai(npc_node, 'npc_ai', npc.ais, options)
+
+def xml_events(events, options):
+    """Create event nodes with ships, npcs and debris from list of npcs"""
+    events_node = Element('events')
+    for event in events:
+        event_node = SubElement(
+            events_node, 'event', type=event.type, name=event.name
+        )
+        xml_params(event_node, 'event_param', event.params)
+        xml_conditions(event_node, 'condition', event.conditions, options)
+        xml_npcs(event_node, 'spawn_npc', event.npcs, options)
+
+        for ship in event.ships:
+            ship_node = SubElement(event_node, 'add_ship')
+            xml_params(ship_node, 'ship_param', ship.params)
+            xml_ai(ship_node, 'ship_ai', ship.ais, options)
+            xml_npcs(ship_node, 'spawn_npc_on_ship', ship.npcs, options)
+
+        for debris in event.debris:
+            debris_node = SubElement(event_node, 'add_debris')
+            xml_params(debris_node, 'debris_param', debris.params)
+
+            for item in debris.items:
+                item_node = SubElement(debris_node, 'debris_item')
+                xml_params(item_node, 'debris_item_param', item.params)
+
+    return events_node
 
 def debug_format(item, indent=0):
     """Format a pretty representation of a processed section"""
@@ -439,12 +746,20 @@ def main():
         'output', nargs='?', default=None,
         help="Output file, defaults to script name with an xml extension"
     )
+    parser.add_argument(
+        'events', nargs='?', default=None,
+        help="Events file, defaults to script name + _events with an xml"
+        " extension"
+    )
 
     args = parser.parse_args()
 
     if args.output is None:
         args.output = Path(args.script).with_suffix('.xml')
 
+    if args.events is None:
+        args.events = Path(args.script)
+        args.events = args.events.with_name(f'{args.events.stem}_events.xml')
 
     in_file = handle_open(args.script, False)
     out_file = handle_open(args.output, True)
@@ -456,8 +771,9 @@ def main():
         error(f"Script does not set the dialogues variable", 2)
 
     dialogues = script_vars['dialogues']
+    events = script_vars.get('events', [])
     options.update(script_vars.get('diagen_options', {}))
-    root = xml_dialogues(dialogues, options)
+    root, extra_events = xml_dialogues(dialogues, options)
 
     root.insert(0, Comment(" Generated by diagen.py "))
     xml_pretty(root)
@@ -465,6 +781,19 @@ def main():
 
     document = ElementTree(root)
     document.write(out_file, encoding="unicode", xml_declaration=True)
+
+    if events or extra_events:
+        events = parse_events(events)
+        events.extend(extra_events)
+        event_file = handle_open(args.events, True)
+        event_root = xml_events(events, options)
+        event_root.insert(0, Comment(" Generated by diagen.py "))
+        xml_pretty(event_root)
+        event_root.tail = "\n"
+        event_document = ElementTree(event_root)
+        event_document.write(
+            event_file, encoding="unicode", xml_declaration=True
+        )
 
 if __name__ == '__main__':
     main()
