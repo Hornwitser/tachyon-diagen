@@ -189,11 +189,10 @@ def parse_message(pos, section):
         pos += 1
     return pos, message
 
-
 def parse_dialogue(pos, section):
     """Parse message objects and modifiers"""
-    if type(section) is tuple and len(section) == 1:
-        msg = f"Got section packed into one element tuple, content: {section}"
+    if isinstance(section, tuple):
+        msg = f"Expected section but got tuple, content: {section}"
         raise TypeError(msg)
 
     dialogue = []
