@@ -394,11 +394,11 @@ diagen_options = {
 
 ### mangle\_any\_value
 
-By default Diagen will add a `var_value="1"` to conditions with the
-type `SERVER_VARIABLE_(ABSENT|PRESENT)` and `any_value="1"` set.  This
-is due to a bug in a0.8.19 where `any_value="1"` doesn't work unless
-`var_value` has been set.  You can disable this behavior by setting
-the `'mangle_any_value'` option to `False`.
+To work around a bug in a0.8.19 you can set `'mangle_any_value'` option
+to `True`.  This will cause Diagen to add a `var_value="1"` to
+conditions with the type `SERVER_VARIABLE_(ABSENT|PRESENT)` and
+`any_value="1"` set.  Since this got fixed in a0.8.20 this option
+defaults to `False`.
 
 
 ### mangle\_empty\_value

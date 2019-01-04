@@ -733,7 +733,7 @@ def main():
 
     options = {
         'default_response': "[SKIP]...",
-        'mangle_any_value': True,
+        'mangle_any_value': False,
         'mangle_empty_value': True,
     }
 
