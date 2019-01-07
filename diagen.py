@@ -28,7 +28,7 @@ from itertools import count
 
 __all__ = [
     'Label', 'Choice', 'Condition', 'AnyCondition', 'Goto', 'End',
-    'Event', 'Response', 'InlineEvent', 'EventDef', 'ChainEvent', 'SpawnNPC',
+    'Event', 'Reply', 'InlineEvent', 'EventDef', 'ChainEvent', 'SpawnNPC',
     'AddShip', 'Ai', 'AddDebris', 'Item', 'xml_dialogues', 'xml_pretty',
 ]
 
@@ -57,10 +57,10 @@ Goto = namedtuple('Goto', 'target')
 Event = namedtuple('Event', 'id target')
 
 # Set the reply text of the previous message.
-Response = namedtuple('Response', 'text')
+Reply = namedtuple('Reply', 'text')
 
 # Specifies a multiple choice message.  Choices is a list of subsections.  The
-# reply element generated can be modified with Response, Condition,
+# reply element generated can be modified with Reply, Condition,
 # AnyCondition, Goto and End put at the start of a choice subsection
 Choice = namedtuple('Choice', 'text choices')
 
@@ -205,7 +205,7 @@ def parse_reply(pos, section):
     while pos < len(section):
         mod = section[pos]
 
-        if type(mod) is Response:
+        if type(mod) is Reply:
             reply.text = mod.text
 
         elif type(mod) is Condition:
@@ -412,7 +412,7 @@ def parse_message(pos, section):
         elif type(item) is Event:
             message.events.append(item)
 
-        elif type(item) is Response:
+        elif type(item) is Reply:
             message.response = item.text
 
         elif type(item) is InlineEvent:
@@ -441,7 +441,7 @@ def parse_dialogue(pos, section):
             continue
 
         elif type(item) in [
-            Condition, AnyCondition, EndType, Goto, Event, Response
+            Condition, AnyCondition, EndType, Goto, Event, Reply
         ]:
             msg = f"{item.__class__.__name__} is not allowed here"
             raise TypeError(msg)

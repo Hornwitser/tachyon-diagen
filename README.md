@@ -24,7 +24,7 @@ Contents
 - [Directives](#directives)
     * [Note about params](#note-about-params)
     * [Label(id)](#labelid)
-    * [Response(text)](#responsetext)
+    * [Reply(text)](#replytext)
     * [Goto(target)](#gototarget)
     * [End](#end)
     * [Event(id, target)](#eventid-target)
@@ -144,15 +144,15 @@ Dialogue sections are Python lists consisting of strings and
 [Directives](#directives).  Strings correspond to the text content of
 messages, and multiple consecutive messages will be linked together with
 auto generated replies.  The text content of replies can be controlled
-with the [Response](#responsetext) directive, though by default the
-reply text is `[SKIP]...`.  Here's a complete Diagen script containing a
-short exchange of words.
+with the [Reply](#replytext) directive, though by default the reply text
+is `[SKIP]...`.  Here's a complete Diagen script containing a short
+exchange of words.
 
 ```py
 dialogues = {
     "MY_DIALOGUE": [
         "Hi. Who are you?",
-        Response("[PLAYER_NAME]"),
+        Reply("[PLAYER_NAME]"),
         "Oh, Hi [PLAYER_NAME], I'm [NPC_NAME]",
         "I have an important mission for you.",
         "I need you to go to the other side of the space station.",
@@ -168,11 +168,11 @@ different responses.
 ```py
 Choice("What is your favorite color?", [
     [
-        Response("Red"),
+        Reply("Red"),
         "Cool, that's my favorite too!",
     ],
     [
-        Response("Green"),
+        Reply("Green"),
         "Green reminds me of the grass fields at home.",
     ],
     [
@@ -180,11 +180,11 @@ Choice("What is your favorite color?", [
         "Silent protagonist, eh?",
         Choice("Would you like some tea perhaps?", [
             [
-                Response("Yes"),
+                Reply("Yes"),
                 "I'll see what I can find",
                 End,
             ],
-            [Response("No")],
+            [Reply("No")],
             [], # Empty responses are also possible
         ]),
     ],
@@ -195,10 +195,10 @@ Choice("What is your favorite color?", [
 Note: To reduce distracting clutter, only the section content is shown
 here.
 
-Using Response at the beginning of a choice sub section sets the text
-of the reply used.  Once the message flow reaches the end of a choice
+Using Reply at the beginning of a choice sub section sets the text of
+the reply used.  Once the message flow reaches the end of a choice
 subsection it contiues after the Choice directive it was defined in.
-Here, after `Response("No")` the flow exits the nested choice subsection
+Here, after `Reply("No")` the flow exits the nested choice subsection
 and continues out another choice subsection and into `"I guess it was
 nice talking to you"`
 
@@ -248,7 +248,7 @@ implementing a looping menu:
 Label("Menu"),
 Choice("What can I do for you?", [
     [
-        Response("Tell me about the station"),
+        Reply("Tell me about the station"),
         "This station was ...",
         # ...
     ],
@@ -256,7 +256,7 @@ Choice("What can I do for you?", [
         # More choices ...
     ],
     [
-        Response("That was all"),
+        Reply("That was all"),
         End,
     ],
 ]),
@@ -272,12 +272,12 @@ message preceeding it.
 ```py
 Choice("Greetings", [
     [
-        Response("Give me a challange"),
+        Reply("Give me a challange"),
         Condition("SECTOR_SHIPS_ABSENT", qty=1, owner="THE_BEARS"),
         "Here you go!",
         Event("SPAWN_CHALLANGE", "PLAYER"),
     ],
-    [Response("Bye!")],
+    [Reply("Bye!")],
 ]),
 ```
 
@@ -345,15 +345,15 @@ Directives apply for the most part to some previous directive or
 message.  This means that unless care is taken to avoid mixing
 directives altering flow of message with ones that apply to the message
 itself the behaviour may be very confusing.  For example, in the
-following section the Event, Response and End all applies to the `"that
-was all"` message.  This means that even though the event and response
+following section the Event, Reply and End all applies to the `"that was
+all"` message.  This means that even though the event and response
 appears after the End marker they are still triggered/shown.
 
 ```py
 "that was all",
 End
 Event("EVENT", "PLAYER"),
-Response("Thank you"),
+Reply("Thank you"),
 ```
 
 Future version may disallow this kind of order breakage.
@@ -462,7 +462,7 @@ output.
 Attaches to the next message or the next choice.
 
 
-### Response(text)
+### Reply(text)
 
 Set the reply text of the previous message to the given text.  When used
 at the start of a choice section it specifies the text of that choice.
@@ -504,8 +504,8 @@ Attaches to the previous message or the previous choice.
 
 Specifies a multiple choice message.  Each choice is of the form
 [subsection content, ...] and emulates a reply element in the XML.  The
-reply element can be modified with Response, Condition, AnyCondition,
-Goto and End added to the start of the subsection
+reply element can be modified with Reply, Condition, AnyCondition, Goto
+and End added to the start of the subsection
 
 
 ### Condition(type, params)
@@ -643,7 +643,7 @@ dialogues = {
         "Hello [PLAYER_NAME], I'm the captain of this ship",
         Choice("Would you like some tea?", [
             [
-                Response("No thanks"),
+                Reply("No thanks"),
 
                 "Alright then, no tea for you",
                 InlineEvent("SERVER_VARIABLE",
@@ -651,11 +651,11 @@ dialogues = {
                 ),
             ],
             [
-                Response("Yes please"),
+                Reply("Yes please"),
 
                 "Here you go. Now go out there and fight some foes!",
                 Event("GIVE_TEA", "PLAYER"),
-                Response("Aye sir!"),
+                Reply("Aye sir!"),
             ]
         ]),
     ],
