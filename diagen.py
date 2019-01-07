@@ -27,7 +27,7 @@ from collections import namedtuple
 from itertools import count
 
 __all__ = [
-    'Label', 'Choice', 'Condition', 'AnyCondition', 'Goto', 'End',
+    'Label', 'Choice', 'Condition', 'Goto', 'End',
     'Event', 'Reply', 'InlineEvent', 'EventDef', 'ChainEvent', 'SpawnNPC',
     'AddShip', 'Ai', 'AddDebris', 'Item', 'xml_dialogues', 'xml_pretty',
 ]
@@ -57,11 +57,14 @@ Goto = namedtuple('Goto', 'target')
 Event = namedtuple('Event', 'id target')
 
 # Set the reply text of the previous message.
-Reply = namedtuple('Reply', 'text')
+_BaseReply = namedtuple('Reply', 'text params')
+class Reply(_BaseReply):
+    def __new__(cls, text=None, params={}, **extra):
+        return super().__new__(cls, text, {**params, **extra})
 
 # Specifies a multiple choice message.  Choices is a list of subsections.  The
-# reply element generated can be modified with Reply, Condition,
-# AnyCondition, Goto and End put at the start of a choice subsection
+# reply element generated can be modified with Reply, Condition, Goto and End
+# put at the start of a choice subsection
 Choice = namedtuple('Choice', 'text choices')
 
 # Attach an event defined inline to the previous message
@@ -126,11 +129,6 @@ class Condition(_BaseCondition):
         return super().__new__(cls, type, {**params, **extra})
 
 
-# Specifies the any_condition attribute of a reply.  May only be used at the
-# start of a choice subsection.
-AnyCondition = namedtuple('AnyCondition', 'value')
-
-
 # Internal use types
 class AutoType:
     def __new__(cls):
@@ -143,12 +141,12 @@ class AutoType:
 Auto = object.__new__(AutoType)
 
 class ParsedReply:
-    def __init__(self, target, text):
+    def __init__(self, target, text, params):
         self.id = Auto
         self.target = target
         self.text = text
+        self.params = params
         self.conditions = []
-        self.any_condition = None
 
 class ParsedMessage:
     def __init__(self, mid, text):
@@ -193,7 +191,7 @@ class ParsedShip:
         self.npcs = []
 
 FlatMessage = namedtuple('FlatMessage', 'id text replies events')
-FlatReply = namedtuple('FlatReply', 'id target text conditions any_condition')
+FlatReply = namedtuple('FlatReply', 'id target text conditions params')
 
 def auto(value, auto_value):
     """Replace a value being Auto with auto_value"""
@@ -201,18 +199,19 @@ def auto(value, auto_value):
 
 def parse_reply(pos, section):
     """Parse reply modifiers from the start of a subsection"""
-    reply = ParsedReply(Auto, Auto)
+    reply = ParsedReply(Auto, Auto, {})
     while pos < len(section):
         mod = section[pos]
 
         if type(mod) is Reply:
-            reply.text = mod.text
+            if mod.text is not None:
+                if reply.text is not Auto:
+                    raise ValueError("Reply cannot be chained")
+                reply.text = mod.text
+            reply.params.update(mod.params)
 
         elif type(mod) is Condition:
             reply.conditions.append(mod)
-
-        elif type(mod) is AnyCondition:
-            reply.any_condition = mod.value
 
         elif mod is End:
             reply.target = None
@@ -413,6 +412,10 @@ def parse_message(pos, section):
             message.events.append(item)
 
         elif type(item) is Reply:
+            if item.params:
+                raise ValueError("Reply not part of choice can't have params")
+            if message.response is not Auto:
+                raise ValueError("Reply cannot be chained")
             message.response = item.text
 
         elif type(item) is InlineEvent:
@@ -440,9 +443,7 @@ def parse_dialogue(pos, section):
             dialogue.append(message)
             continue
 
-        elif type(item) in [
-            Condition, AnyCondition, EndType, Goto, Event, Reply
-        ]:
+        elif type(item) in [Condition, EndType, Goto, Event, Reply]:
             msg = f"{item.__class__.__name__} is not allowed here"
             raise TypeError(msg)
 
@@ -524,14 +525,14 @@ def flatten(section):
             for reply, sub in item.choices:
                 replies.append(FlatReply(
                     reply.id, reply.target, reply.text,
-                    reply.conditions, reply.any_condition
+                    reply.conditions, reply.params
                 ))
                 sub_output, sub_defs = flatten(sub)
                 sub_outputs.extend(sub_output)
                 events.extend(sub_defs)
 
         elif item.response is not Auto or item.next is not None:
-            replies.append(FlatReply('R1', item.next, item.response, [], None))
+            replies.append(FlatReply('R1', item.next, item.response, [], {}))
 
         output.append(FlatMessage(item.id, item.text, replies, event_calls))
         output.extend(sub_outputs)
@@ -593,8 +594,10 @@ def xml_messages(node, messages, options):
             if reply.target is not None:
                 reply_node.set('next', reply.target)
 
-            if reply.any_condition is not None:
-                reply_node.set('any_condition', reply.any_condition)
+            for key, value in reply.params.items():
+                if type(value) is int:
+                    value = str(value)
+                reply_node.set(key, value)
 
             xml_conditions(reply_node, 'condition', reply.conditions, options)
 
@@ -680,7 +683,7 @@ def debug_format(item, indent=0):
         return (
             f"{' '*indent}<ParsedReply id={item.id!r} target={item.target!r}"
             f" text={item.text!r} conditions={item.conditions}"
-            f" any_condition={item.any_condition}>"
+            f" params={item.params}>"
         )
 
     if type(item) is list:

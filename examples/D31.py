@@ -123,8 +123,7 @@ dialogues = {
                         InlineEvent("SERVER_VARIABLE", "PLAYER", var_name="SS31_GO_TO_SENSORS", var_value=1),
                     ],
                     [
-                        Reply("No, not yet."),
-                        AnyCondition("1"),
+                        Reply("No, not yet.", any_condition=1),
                         *[
                             Condition("SHIP_SYSTEM_ABSENT", system_type=system, active_system=1, qty=qty)
                             for system, qty in [
@@ -415,7 +414,7 @@ dialogues = {
 
                 Choice("I've finished assembling the new HYPER DRIVE for you.", [
                     [
-                        AnyCondition("1"),
+                        Reply(any_condition=1),
                         Condition("SERVER_VARIABLE_PRESENT", var_name="PLAYER_CREW_SPAWNED", var_value=1),
                         Condition("SECTOR_PLAYERS_PRESENT", qty=3),
                     ],

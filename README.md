@@ -24,13 +24,12 @@ Contents
 - [Directives](#directives)
     * [Note about params](#note-about-params)
     * [Label(id)](#labelid)
-    * [Reply(text)](#replytext)
+    * [Reply(text=None, params)](#replytextnone-params)
     * [Goto(target)](#gototarget)
     * [End](#end)
     * [Event(id, target)](#eventid-target)
     * [Choice(text, choices)](#choicetext-choices)
     * [Condition(type, params)](#conditiontype-params)
-    * [AnyCondition(value)](#anyconditionvalue)
     * [InlineEvent(type, target, name=None, params)][1]
     * [EventDef(type, name, params)](#eventdeftype-name-params)
     * [SpawnNPC(params)](#spawnnpcparams)
@@ -144,9 +143,9 @@ Dialogue sections are Python lists consisting of strings and
 [Directives](#directives).  Strings correspond to the text content of
 messages, and multiple consecutive messages will be linked together with
 auto generated replies.  The text content of replies can be controlled
-with the [Reply](#replytext) directive, though by default the reply text
-is `[SKIP]...`.  Here's a complete Diagen script containing a short
-exchange of words.
+with the [Reply](#replytextnone-params) directive, though by default the
+reply text is `[SKIP]...`.  Here's a complete Diagen script containing a
+short exchange of words.
 
 ```py
 dialogues = {
@@ -462,12 +461,17 @@ output.
 Attaches to the next message or the next choice.
 
 
-### Reply(text)
+### Reply(text=None, params)
 
 Set the reply text of the previous message to the given text.  When used
-at the start of a choice section it specifies the text of that choice.
-When used imminently after a Choice section it sets the default response
+at the start of a choice section it specifies the text of that choice,
+as well as any extra attributes for the `<reply>` element.  When used
+imminently after a Choice section it sets the default response
 text for all choices in that choice section.
+
+Note: params can only be set when this directive is used at the start of
+a choice section.  It's also possible to leave out the text parameter
+there to use the default.
 
 Attaches to the previous message or the choice subsection.
 
@@ -504,8 +508,8 @@ Attaches to the previous message or the previous choice.
 
 Specifies a multiple choice message.  Each choice is of the form
 [subsection content, ...] and emulates a reply element in the XML.  The
-reply element can be modified with Reply, Condition, AnyCondition, Goto
-and End added to the start of the subsection
+reply element can be modified with Reply, Condition, Goto and End added
+to the start of the subsection
 
 
 ### Condition(type, params)
@@ -524,14 +528,6 @@ See [note about params](#note-about-params) for a description of the
 `params` parameter.
 
 Attaches to the choice subsection, or the previous event or AI.
-
-
-### AnyCondition(value)
-
-Specifies the `any_condition` attribute of a reply.  Only usable at the
-start of a subsection inside a Choice.
-
-Attaches to the choice subsection.
 
 
 ### InlineEvent(type, target, name=None, params)
