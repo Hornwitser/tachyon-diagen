@@ -190,6 +190,15 @@ class ParsedShip:
         self.ais = []
         self.npcs = []
 
+class ParseError(Exception):
+    """Raised if an error occurs during section parsing"""
+
+    def __init__(self, msg, pos, section):
+        self.msg = msg
+        self.pos = pos
+        self.section = section
+        self.parents = []
+
 FlatMessage = namedtuple('FlatMessage', 'id text replies events')
 FlatReply = namedtuple('FlatReply', 'id target text conditions params')
 
@@ -206,7 +215,7 @@ def parse_reply(pos, section):
         if type(mod) is Reply:
             if mod.text is not None:
                 if reply.text is not Auto:
-                    raise ValueError("Reply cannot be chained")
+                    raise ParseError("Reply cannot be chained", pos, section)
                 reply.text = mod.text
             reply.params.update(mod.params)
 
@@ -361,8 +370,8 @@ def parse_events(section):
             events.append(event)
 
         else:
-            msg = f"Unkown item type {item.__class__.__name__}, value: {item}"
-            raise TypeError(msg)
+            msg = f"Unkown item type {item.__class__.__name__}"
+            raise ParseError(msg, pos, section)
 
     return events
 
@@ -372,7 +381,8 @@ def parse_message(pos, section):
 
     if type(section[pos]) is Label:
         if pos == len(section):
-            raise TypeError("Label is not allowed at the end of a section")
+            msg = "Label is not allowed at the end of a section"
+            raise ParseError(msg, pos, section)
 
         mid = section[pos].id
         pos += 1
@@ -384,9 +394,23 @@ def parse_message(pos, section):
     elif type(section[pos]) is Choice:
         choices = []
         for content in section[pos].choices:
-            subpos, reply = parse_reply(0, content)
-            _, subsection = parse_dialogue(subpos, content)
-            choices.append((reply, subsection))
+            try:
+                subpos, reply = parse_reply(0, content)
+                _, subsection = parse_dialogue(subpos, content)
+
+            except ParseError as err:
+                err.parents.append((pos, section))
+                raise err
+
+            except Exception as exc:
+                msg = (
+                    f"Exception while parsing this section:"
+                    f" {exc.__class__.__name__}: {exc}"
+                )
+                raise ParseError(msg, pos, section)
+
+            else:
+                choices.append((reply, subsection))
 
         message = ParsedMessage(mid, section[pos].text)
         message.choices.extend(choices)
@@ -394,7 +418,7 @@ def parse_message(pos, section):
 
     elif mid is not Auto:
         msg = f"{section[pos].__class__.__name__} is not allowed after a Label"
-        raise TypeError(msg)
+        raise ParseError(msg, pos, section)
 
     else:
         raise TypeError(f"parse_message called on {section[pos]}")
@@ -413,9 +437,10 @@ def parse_message(pos, section):
 
         elif type(item) is Reply:
             if item.params:
-                raise ValueError("Reply not part of choice can't have params")
+                msg = "Reply not part of choice can't have params"
+                raise ParseError(msg, pos, section)
             if message.response is not Auto:
-                raise ValueError("Reply cannot be chained")
+                raise ParseError("Reply cannot be chained", pos, section)
             message.response = item.text
 
         elif type(item) is InlineEvent:
@@ -432,7 +457,7 @@ def parse_dialogue(pos, section):
     """Parse message objects and modifiers"""
     if isinstance(section, tuple):
         msg = f"Expected section but got tuple, content: {section}"
-        raise TypeError(msg)
+        raise ParseError(msg, pos, None)
 
     dialogue = []
     while pos < len(section):
@@ -445,11 +470,11 @@ def parse_dialogue(pos, section):
 
         elif type(item) in [Condition, EndType, Goto, Event, Reply]:
             msg = f"{item.__class__.__name__} is not allowed here"
-            raise TypeError(msg)
+            raise ParseError(msg, pos, section)
 
         else:
-            msg = f"Unkown item type {item.__class__.__name__}, value: {item}"
-            raise TypeError(msg)
+            msg = f"Unkown item type {item.__class__.__name__}"
+            raise ParseError(msg, pos, section)
 
         pos += 1
 
@@ -609,7 +634,14 @@ def xml_dialogues(dialogues, options):
     extra_events = []
     for name, section in dialogues.items():
         ename_gen = map(f"{name}_E{{}}".format, count())
-        _, section = parse_dialogue(0, section)
+
+        try:
+            _, section = parse_dialogue(0, section)
+
+        except ParseError as err:
+            err.parents.append((name, None))
+            raise err
+
         assign_ids(section, mid_gen, ename_gen)
         resolve(section)
         messages, events = flatten(section)
@@ -702,6 +734,35 @@ def debug_format(item, indent=0):
 
     return ' ' * indent + repr(item)
 
+def format_pos(pos, section):
+    """Formats the last entries before pos with an arrow point at pos"""
+    if section is None:
+        return f">{pos:3}: Unkown"
+
+    parts = []
+    for i in range(max(pos - 2, 0), pos + 1):
+        if type(section[i]) is Choice:
+            content = f"Choice({section[i].text!r}, ...)"
+        else:
+            content = repr(section[i])
+
+        parts.append(f"{'>' if i == pos else ' '}{i:3}: {content}")
+    return "\n".join(parts)
+
+def format_parse_error(err):
+    """Formats a parse error into a traceback like message"""
+    parts = []
+    parts.append(format_pos(err.pos, err.section))
+    for pos, section in err.parents:
+        if type(pos) is int:
+            parts.insert(0, "in subsection")
+            parts.insert(0, format_pos(pos, section))
+        else:
+            parts.insert(0, f"in dialogue '{pos}'")
+
+    parts.append(f"ParseError: {err.msg}")
+    return "\n".join(parts)
+
 def xml_pretty(node, indent=0):
     """Indents and spreads out compact nodes representaions over lines"""
     if len(node):
@@ -776,7 +837,11 @@ def main():
     dialogues = script_vars['dialogues']
     events = script_vars.get('events', [])
     options.update(script_vars.get('diagen_options', {}))
-    root, extra_events = xml_dialogues(dialogues, options)
+
+    try:
+        root, extra_events = xml_dialogues(dialogues, options)
+    except ParseError as err:
+        error(format_parse_error(err))
 
     root.insert(0, Comment(" Generated by diagen.py "))
     xml_pretty(root)
@@ -786,7 +851,12 @@ def main():
     document.write(out_file, encoding="unicode", xml_declaration=True)
 
     if events or extra_events:
-        events = parse_events(events)
+        try:
+            events = parse_events(events)
+        except ParseError as err:
+            msg = format_parse_error(err)
+            error("\n".join(["in events section", msg]))
+
         events.extend(extra_events)
         event_file = handle_open(args.events, True)
         event_root = xml_events(events, options)
